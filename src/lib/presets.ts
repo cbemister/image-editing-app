@@ -43,7 +43,11 @@ export const DEFAULT_PRESETS: Preset[] = [
     suffix: 'portrait',
     format: 'image/jpeg',
     quality: 0.85,
-    sizes: [size(280, 375), size(500, 670)],
+    // 560x750 is an exact 2x of 280x375, for high-DPI phones: the staff page
+    // renders these in a 120px box, so a 3x display needs 360px and a 4.5x one
+    // needs 540px. At 280 the browser upscales and the photo looks soft next to
+    // natively-rendered text.
+    sizes: [size(560, 750), size(280, 375), size(500, 670)],
   },
   {
     id: uid('preset'),
@@ -71,7 +75,12 @@ export const DEFAULT_PRESETS: Preset[] = [
   },
 ];
 
-const STORAGE_KEY = 'staff-cropper.presets.v1';
+/**
+ * Bump this when DEFAULT_PRESETS changes in a way existing users should pick
+ * up — a stored v1 copy would otherwise shadow the new defaults forever.
+ * v2: added 560x750 to Portrait 280 for high-DPI phones.
+ */
+const STORAGE_KEY = 'staff-cropper.presets.v2';
 
 export function loadPresets(): Preset[] {
   try {

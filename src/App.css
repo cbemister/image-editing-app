@@ -391,3 +391,19 @@ button.danger:hover {
   font-size: 11px;
   min-height: 24px;
 }
+
+.update-note {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.update-note button {
+  padding: 2px 8px;
+  font-size: 11px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}

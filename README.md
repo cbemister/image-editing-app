@@ -15,10 +15,29 @@ npm run dev
 
 Then open http://localhost:5173 in Chrome or Edge.
 
-### Make it feel like a desktop app
+### Install it as a desktop app (works with no server running)
 
-In Chrome/Edge, open the ⋮ menu → **Cast, save and share** → **Install page as
-app**. You get a real window and a taskbar icon, with no admin rights required.
+```
+npm run build
+npm run serve
+```
+
+Open http://localhost:4173, then in Chrome/Edge: ⋮ → **Cast, save and share** →
+**Install page as app**. You get a real window and taskbar icon, no admin rights
+needed.
+
+The app caches itself on install — about 12 MB, including the face-detection
+model — so **once installed you can stop the server and it keeps working**,
+offline included. Launch it from the taskbar like any other app.
+
+`npm run dev` is only for developing. `npm run serve` is only needed to install
+the app or to pick up a new build.
+
+### Updating an installed app
+
+Run `npm run build && npm run serve`, then open the installed app once while the
+server is up. It notices the new version and shows a **Reload** button in the
+status bar. After that you can stop the server again.
 
 ## How it works
 
@@ -72,6 +91,45 @@ pick — no download prompts. Without it, files go to your Downloads folder.
 Filenames are `basename-suffix-WIDTHxHEIGHT.jpg`, e.g.
 `jane-smith-square-300x300.jpg`. Untick **size in filename** to drop the
 dimensions.
+
+## Sharing / deploying
+
+The build is a folder of static files. **Anyone using the app needs only a
+browser** — Node is required just to build it, and to run the batch CLI.
+
+```
+npm install     # also fetches the MediaPipe runtime and model
+npm run build   # -> dist/
+```
+
+Serve `dist/` from anything: Netlify, Vercel, GitHub Pages, S3, nginx, an
+internal share. Photos are processed entirely in the visitor's browser, so
+hosting the app never means hosting anyone's images.
+
+Deploying under a subfolder — a GitHub Pages project site, say — needs the base
+path set, which rebases the asset URLs, the service worker scope, and the
+manifest:
+
+```
+BASE_PATH=/staff-photo-cropper/ npm run build
+```
+
+Two things to get right on the host:
+
+- **HTTPS is required** for the service worker (and so for offline use).
+  `localhost` is exempt, which is why local installs work over plain http.
+- **Serve `sw.js` with `Cache-Control: no-cache`**, or browsers can pin an old
+  worker and never pick up new versions. `npm run serve` already does this.
+
+### Assets are generated, not committed
+
+`public/mediapipe/` holds ~23 MB of WASM and the face model. Those are build
+inputs rather than source, so they are gitignored and produced by
+`scripts/fetch-assets.mjs`, which runs automatically on `npm install`. The WASM
+is copied from the installed `@mediapipe/tasks-vision` package so it always
+matches `package.json`; the model is downloaded once and cached.
+
+To regenerate them by hand: `node scripts/fetch-assets.mjs`
 
 ## Batch mode (no browser)
 

@@ -6,6 +6,7 @@ import type { CropRect, LoadedImage, Preset } from './lib/types';
 import { presetRatio } from './lib/types';
 import { cropFor, cropAroundFace, defaultCrop, refitCropToRatio } from './lib/crop';
 import { detectFace, preloadDetector, type FaceBox } from './lib/face';
+import { applyUpdate, registerServiceWorker } from './lib/sw-register';
 import { exportImage } from './lib/export';
 import {
   downloadItems,
@@ -29,11 +30,15 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const outDirRef = useRef<DirectoryHandleLike | null>(null);
   const [outDirName, setOutDirName] = useState<string | null>(null);
+  const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => savePresets(presets), [presets]);
 
   // Load the face model in the background so the first Auto-frame is instant.
   useEffect(() => preloadDetector(), []);
+
+  // Offline support; surfaces a prompt when a newer build is cached and waiting.
+  useEffect(() => registerServiceWorker(() => setUpdateReady(true)), []);
 
   /**
    * Keep active/selected preset ids valid as presets are added or deleted.
@@ -407,7 +412,15 @@ export default function App() {
         )}
       </footer>
 
-      <div className="statusbar">{busy ? `⏳ ${status}` : status}</div>
+      <div className="statusbar">
+        {busy ? `⏳ ${status}` : status}
+        {updateReady && (
+          <span className="update-note">
+            A new version is ready.
+            <button onClick={applyUpdate}>Reload</button>
+          </span>
+        )}
+      </div>
     </div>
   );
 }

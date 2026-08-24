@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
+    "build": "node scripts/fetch-assets.mjs && tsc -b && vite build && node scripts/build-sw.mjs",
+    "serve": "node scripts/serve.mjs",
     "preview": "vite preview",
-    "crop": "node scripts/crop.mjs"
+    "crop": "node scripts/crop.mjs",
+    "lint": "oxlint",
+    "prepare": "node scripts/fetch-assets.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",

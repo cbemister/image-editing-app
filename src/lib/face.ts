@@ -18,8 +18,9 @@ export interface FaceBox {
  * The WASM runtime and model are served from /public, not a CDN, so detection
  * works offline and no image data ever leaves the machine.
  */
-const WASM_PATH = '/mediapipe/wasm';
-const MODEL_PATH = '/mediapipe/blaze_face_short_range.tflite';
+const BASE = import.meta.env.BASE_URL;
+const WASM_PATH = `${BASE}mediapipe/wasm`;
+const MODEL_PATH = `${BASE}mediapipe/blaze_face_short_range.tflite`;
 
 let detectorPromise: Promise<FaceDetector> | null = null;
 

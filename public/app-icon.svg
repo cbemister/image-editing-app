@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#171a21"/>
+  <!-- Crop marks framing a portrait -->
+  <g fill="none" stroke="#4f8cff" stroke-width="20" stroke-linecap="square">
+    <path d="M140 108v40M140 108h40"/>
+    <path d="M372 108v40M372 108h-40"/>
+    <path d="M140 404v-40M140 404h40"/>
+    <path d="M372 404v-40M372 404h-40"/>
+  </g>
+  <!-- Head and shoulders -->
+  <circle cx="256" cy="228" r="58" fill="#e6e9ef"/>
+  <path d="M158 384c0-54 44-98 98-98s98 44 98 98z" fill="#e6e9ef"/>
+</svg>
