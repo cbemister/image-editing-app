@@ -1,12 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <!-- Maskable: full bleed, all content inside the centre 80% safe zone -->
-  <rect width="512" height="512" fill="#171a21"/>
-  <g fill="none" stroke="#4f8cff" stroke-width="16" stroke-linecap="square">
-    <path d="M176 152v32M176 152h32"/>
-    <path d="M336 152v32M336 152h-32"/>
-    <path d="M176 360v-32M176 360h32"/>
-    <path d="M336 360v-32M336 360h-32"/>
-  </g>
-  <circle cx="256" cy="236" r="46" fill="#e6e9ef"/>
-  <path d="M178 348c0-43 35-78 78-78s78 35 78 78z" fill="#e6e9ef"/>
+  <rect width="512" height="512" fill="#0b0d11"/>
+  <rect x="146" y="146" width="180" height="180" fill="none" stroke="#75757a" stroke-width="14"/>
+  <rect x="210" y="210" width="180" height="180" fill="#2c1c1c" stroke="#e35555" stroke-width="16"/>
 </svg>
