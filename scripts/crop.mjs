@@ -66,7 +66,7 @@ function parseArgs(argv) {
 }
 
 const HELP = `
-Staff Photo Cropper — batch mode
+Framewise — batch mode
 
   npm run crop -- <input-dir> <output-dir> [options]
 

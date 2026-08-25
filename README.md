@@ -1,10 +1,22 @@
-# Staff Photo Cropper
+# Framewise
 
-A local replacement for cropping staff photos in Photoshop. Load headshots, crop
-once per aspect ratio, and export every pixel size you need in one click.
+A local replacement for cropping images in Photoshop. Load your files, crop once
+per aspect ratio, and export every pixel size you need in one click.
+
+Presets ship in three groups:
+
+- **Staff photos** — the square and portrait sizes used across the staff pages.
+- **Social media** — Instagram, Story/Reel, LinkedIn, Facebook, X, YouTube, and
+  Open Graph link previews.
+- **Logos & icons** — logo sets, app icons, favicons, and email signatures.
+
+Photo and social presets **crop to fill**, so the frame is covered edge to edge.
+Logo presets **fit the whole image** instead: the artwork is scaled to fit inside
+the frame and padded, so a wordmark keeps its ends rather than being cut through.
+Padding and the background (including transparent) are per-preset settings.
 
 Everything runs in the browser on your own machine — no upload, no server, no
-account. Photos never leave the computer.
+account. Images never leave the computer.
 
 ## Running it
 

@@ -1,4 +1,5 @@
 import type { CropRect, LoadedImage, OutputSize, Preset } from './types';
+import { isSizeEnabled } from './types';
 import { cropFor } from './crop';
 
 export interface ExportItem {
@@ -21,9 +22,9 @@ export async function renderSize(
   bitmap: ImageBitmap,
   crop: CropRect,
   size: OutputSize,
-  format: Preset['format'],
-  quality: number
+  preset: Preset
 ): Promise<Blob> {
+  const { format, quality, fit } = preset;
   let sourceCanvas: HTMLCanvasElement | OffscreenCanvas;
   let sw = Math.round(crop.width);
   let sh = Math.round(crop.height);
@@ -68,23 +69,52 @@ export async function renderSize(
   octx.imageSmoothingEnabled = true;
   octx.imageSmoothingQuality = 'high';
 
-  // JPEG has no alpha; fill white so transparent source areas don't go black.
-  if (format === 'image/jpeg') {
+  // Paint the backdrop. JPEG has no alpha, so a transparent background would
+  // encode as black -- fall back to white there.
+  const backdrop =
+    fit === 'contain' ? (preset.background ?? '#ffffff') : '#ffffff';
+  if (backdrop !== 'transparent') {
+    octx.fillStyle = backdrop;
+    octx.fillRect(0, 0, size.width, size.height);
+  } else if (format === 'image/jpeg') {
     octx.fillStyle = '#ffffff';
     octx.fillRect(0, 0, size.width, size.height);
   }
 
-  octx.drawImage(
-    sourceCanvas as CanvasImageSource,
-    0,
-    0,
-    sw,
-    sh,
-    0,
-    0,
-    size.width,
-    size.height
-  );
+  if (fit === 'contain') {
+    // Fit the whole crop inside the padded box, preserving its aspect ratio,
+    // so a wordmark keeps its ends instead of being cut through.
+    const inset = Math.min(Math.max(preset.padding ?? 0, 0), 0.45);
+    const pad = Math.min(size.width, size.height) * inset;
+    const boxW = Math.max(1, size.width - pad * 2);
+    const boxH = Math.max(1, size.height - pad * 2);
+    const scale = Math.min(boxW / sw, boxH / sh);
+    const dw = Math.round(sw * scale);
+    const dh = Math.round(sh * scale);
+    octx.drawImage(
+      sourceCanvas as CanvasImageSource,
+      0,
+      0,
+      sw,
+      sh,
+      Math.round((size.width - dw) / 2),
+      Math.round((size.height - dh) / 2),
+      dw,
+      dh
+    );
+  } else {
+    octx.drawImage(
+      sourceCanvas as CanvasImageSource,
+      0,
+      0,
+      sw,
+      sh,
+      0,
+      0,
+      size.width,
+      size.height
+    );
+  }
 
   if (out instanceof OffscreenCanvas) {
     return out.convertToBlob({ type: format, quality });
@@ -120,14 +150,8 @@ export async function exportImage(
   for (const preset of presets) {
     const crop = cropFor(image, preset);
     for (const size of preset.sizes) {
-      if (!size.enabled) continue;
-      const blob = await renderSize(
-        image.bitmap,
-        crop,
-        size,
-        preset.format,
-        preset.quality
-      );
+      if (!isSizeEnabled(size)) continue;
+      const blob = await renderSize(image.bitmap, crop, size, preset);
       items.push({
         filename: filenameFor(image, preset, size, includeDimensions),
         blob,

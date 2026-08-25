@@ -1,20 +1,155 @@
-import type { Preset } from '../lib/types';
-import { mismatchedSizes, presetRatio, ratioOf } from '../lib/types';
-import { newPreset, newSize } from '../lib/presets';
+import { useState } from 'react';
+import type { OutputSize, Preset, PresetCategory } from '../lib/types';
+import {
+  CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  isSizeEnabled,
+  mismatchedSizes,
+  presetRatio,
+  ratioLabel,
+  ratioLabelOf,
+  ratioOf,
+  ratiosMatch,
+} from '../lib/types';
+import { newPreset, newSize, type RecentSize } from '../lib/presets';
 
 interface Props {
   presets: Preset[];
   activeId: string | null;
   onSetPresets(presets: Preset[]): void;
   onSetActive(id: string): void;
+  /** Dimensions used before, most recent first. Offered in the staff section. */
+  recentSizes: RecentSize[];
+  /** Record a dimension as used, so it can be reused without retyping. */
+  onRecordSize(width: number, height: number): void;
 }
 
 /**
  * One batch uses one preset, so the active preset IS the selection — there are
  * no checkboxes. Only the active preset expands to reveal its settings, which
- * keeps the whole list visible at a glance.
+ * keeps the whole list visible at a glance. Presets are grouped by category so
+ * a staff photo run never has to scroll past the social library.
  */
-export function PresetPanel({ presets, activeId, onSetPresets, onSetActive }: Props) {
+export function PresetPanel({
+  presets,
+  activeId,
+  onSetPresets,
+  onSetActive,
+  recentSizes,
+  onRecordSize,
+}: Props) {
+  // Collapsed categories, by name. Empty by default: every group starts open,
+  // and a group holding the active preset is forced open regardless, so the
+  // current selection can never be hidden behind a collapsed header.
+  const [collapsed, setCollapsed] = useState<Set<PresetCategory>>(new Set());
+
+  const toggleCategory = (category: PresetCategory) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+
+  // The new-size row is uncommitted text until it holds a usable width, so it
+  // lives here rather than in the preset.
+  const [draftWidth, setDraftWidth] = useState('');
+  // Only Custom asks for a height; locked shapes derive it.
+  const [draftHeight, setDraftHeight] = useState('');
+  // Switching presets abandons a half-typed size rather than carrying it into
+  // a preset it was never meant for.
+  const [draftOwner, setDraftOwner] = useState(activeId);
+  if (draftOwner !== activeId) {
+    setDraftOwner(activeId);
+    if (draftWidth || draftHeight) {
+      setDraftWidth('');
+      setDraftHeight('');
+    }
+  }
+
+  const clearDraft = () => {
+    setDraftWidth('');
+    setDraftHeight('');
+  };
+
+  /**
+   * Add a staff size, filing it under the group that shares its ratio.
+   *
+   * A crop box has one shape, so sizes are grouped by ratio and each group is
+   * framed once. A size at a ratio no group holds gets a new one — named for
+   * the ratio, selected so it can be framed straight away.
+   */
+  const addStaffSize = (width: number, height: number) => {
+    const w = Math.round(width);
+    const h = Math.round(height);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) return;
+    onRecordSize(w, h);
+
+    const ratio = w / h;
+    const group = presets.find(
+      (p) => p.category === 'photo' && ratiosMatch(presetRatio(p), ratio)
+    );
+
+    if (group) {
+      if (group.sizes.some((s) => s.width === w && s.height === h)) {
+        onSetActive(group.id);
+        return;
+      }
+      onSetPresets(
+        presets.map((p) => (p.id === group.id ? { ...p, sizes: [...p.sizes, newSize(w, h)] } : p))
+      );
+      onSetActive(group.id);
+      return;
+    }
+
+    // No group at this ratio yet — start one. The suffix keeps exported
+    // filenames distinguishable between groups.
+    const created = newPreset('photo');
+    const label = ratioLabelOf(ratio);
+    const next: Preset = {
+      ...created,
+      name: label,
+      suffix: label.replace(':', 'x'),
+      sizes: [newSize(w, h)],
+    };
+    onSetPresets([...presets, next]);
+    onSetActive(next.id);
+  };
+
+  /** Append a dimension to a non-staff preset and remember it for reuse. */
+  const addSizeTo = (preset: Preset, width: number, height: number) => {
+    const w = Math.round(width);
+    const h = Math.round(height);
+    const exists = preset.sizes.some((s) => s.width === w && s.height === h);
+    if (!exists) {
+      onSetPresets(
+        presets.map((p) => (p.id === preset.id ? { ...p, sizes: [...p.sizes, newSize(w, h)] } : p))
+      );
+    }
+    onRecordSize(w, h);
+  };
+
+  /**
+   * Turn the draft into a real size. A width is required. Custom supplies its
+   * own height; locked shapes derive one from their ratio. Called on Enter and
+   * on blur, so a typed value is never silently lost by clicking away.
+   */
+  const commitDraft = (preset: Preset, ratio: number) => {
+    const width = Number(draftWidth);
+    if (!draftWidth || !Number.isFinite(width) || width < 1) {
+      clearDraft();
+      return;
+    }
+    // A typed height (Custom only) wins; otherwise the shape's ratio decides.
+    const typed = Number(draftHeight);
+    const height =
+      draftHeight && Number.isFinite(typed) && typed >= 1
+        ? Math.round(typed)
+        : Math.max(1, Math.round(width / ratio));
+    addSizeTo(preset, width, height);
+    clearDraft();
+  };
+
   const update = (id: string, patch: Partial<Preset>) =>
     onSetPresets(presets.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
@@ -22,7 +157,7 @@ export function PresetPanel({ presets, activeId, onSetPresets, onSetActive }: Pr
     const blob = new Blob([JSON.stringify(presets, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'crop-presets.json';
+    a.download = 'framewise-presets.json';
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -36,14 +171,432 @@ export function PresetPanel({ presets, activeId, onSetPresets, onSetActive }: Pr
     }
   };
 
+  /**
+   * The settings every preset shares: filename suffix, format, fit, and the
+   * quality/padding/background controls those imply. Shared by the staff
+   * section and the preset list.
+   */
+  const renderPresetSettings = (preset: Preset) => {
+    const isContain = preset.fit === 'contain';
+    return (
+      <div className="preset-meta">
+        <label>
+          suffix
+          <input
+            value={preset.suffix}
+            onChange={(e) => update(preset.id, { suffix: e.target.value })}
+          />
+        </label>
+        <label>
+          format
+          <select
+            value={preset.format}
+            onChange={(e) => update(preset.id, { format: e.target.value as Preset['format'] })}
+          >
+            <option value="image/jpeg">JPG</option>
+            <option value="image/png">PNG</option>
+            <option value="image/webp">WebP</option>
+          </select>
+        </label>
+        <label>
+          fit
+          <select
+            value={preset.fit}
+            onChange={(e) => update(preset.id, { fit: e.target.value as Preset['fit'] })}
+          >
+            <option value="cover">Crop to fill</option>
+            <option value="contain">Fit whole image</option>
+          </select>
+        </label>
+        {preset.format !== 'image/png' && (
+          <label>
+            quality {Math.round(preset.quality * 100)}
+            <input
+              type="range"
+              min={40}
+              max={100}
+              value={Math.round(preset.quality * 100)}
+              onChange={(e) => update(preset.id, { quality: Number(e.target.value) / 100 })}
+            />
+          </label>
+        )}
+        {isContain && (
+          <>
+            <label>
+              padding {Math.round((preset.padding ?? 0) * 100)}%
+              <input
+                type="range"
+                min={0}
+                max={40}
+                value={Math.round((preset.padding ?? 0) * 100)}
+                onChange={(e) => update(preset.id, { padding: Number(e.target.value) / 100 })}
+              />
+            </label>
+            <label className="bg-field">
+              background
+              <span className="bg-controls">
+                <input
+                  type="color"
+                  value={
+                    preset.background && preset.background !== 'transparent'
+                      ? preset.background
+                      : '#ffffff'
+                  }
+                  onChange={(e) => update(preset.id, { background: e.target.value })}
+                  disabled={preset.background === 'transparent'}
+                />
+                <span className="check">
+                  <input
+                    type="checkbox"
+                    checked={preset.background === 'transparent'}
+                    onChange={(e) =>
+                      update(preset.id, {
+                        background: e.target.checked ? 'transparent' : '#ffffff',
+                      })
+                    }
+                  />
+                  none
+                </span>
+              </span>
+            </label>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  /**
+   * One dimension cell. Shared by the staff section and the preset list so a
+   * size behaves identically wherever it is shown.
+   */
+  const renderSizeCell = (preset: Preset, size: OutputSize, _sizeIndex: number, ratio: number) => {
+    const isContain = preset.fit === 'contain';
+    const bad = isContain ? [] : mismatchedSizes(preset);
+    const ok = !bad.includes(size);
+    return (
+      <div
+        key={size.id}
+        className={`size ${ok ? '' : 'mismatch'}`}
+        title={size.label || undefined}
+      >
+        {/*
+          * A committed size is a value, not a field: click to include it in
+          * the export or leave it out. Editing in place invited the shape to
+          * be redefined a digit at a time; the row at the top of the list is
+          * the one place anything is typed.
+          */}
+        <button
+          className="size-pick"
+          aria-pressed={isSizeEnabled(size)}
+          title={
+            isSizeEnabled(size)
+              ? `${size.width}×${size.height} will be exported — click to skip it`
+              : `${size.width}×${size.height} is skipped — click to include it`
+          }
+          onClick={() =>
+            update(preset.id, {
+              sizes: preset.sizes.map((s) =>
+                s.id === size.id ? { ...s, enabled: !isSizeEnabled(s) } : s
+              ),
+            })
+          }
+        >
+          {size.width}
+          <span className="size-x">×</span>
+          {size.height}
+        </button>
+        {size.label && <span className="size-label">{size.label}</span>}
+        {!ok && (
+          <span
+            className="warn"
+            title={`Ratio ${ratioOf(size).toFixed(3)} differs from the preset ratio ${ratio.toFixed(3)} — this size will be distorted.`}
+          >
+            !
+          </span>
+        )}
+        {/*
+          * Overlaid on the chip's top-right corner rather than sitting beside
+          * it: as a sibling it reserved 17px on every chip, which is most of a
+          * third column's worth of width across the list.
+          */}
+        <button
+          className="size-remove"
+          onClick={() => update(preset.id, { sizes: preset.sizes.filter((s) => s.id !== size.id) })}
+          title={`Remove ${size.width}×${size.height}`}
+          aria-label={`Remove ${size.width}×${size.height}`}
+          disabled={preset.sizes.length === 1}
+        >
+          ×
+        </button>
+      </div>
+    );
+  };
+
+  /**
+   * Staff photos are chosen by shape, not from a catalogue: pick Square,
+   * Portrait, or Custom, then type the dimensions you want. Each shape is
+   * still a preset underneath, so each keeps its own crop and switching shape
+   * reframes instead of stretching the last crop into a new ratio.
+   */
+  /**
+   * Staff photos: one list of sizes, typed in directly.
+   *
+   * There are no shapes to pick. Sizes are grouped by ratio underneath — a
+   * crop box has exactly one shape — and each group is framed separately, so
+   * the list shows which crop a size belongs to and lets you switch between
+   * them. Adding a size at a new ratio creates its group on the spot.
+   */
+  const renderStaffSection = (group: Preset[]) => {
+    const active = group.find((p) => p.id === activeId) ?? group[0];
+    if (!active) return null;
+
+    const widthNum = Number(draftWidth);
+    const heightNum = Number(draftHeight);
+    const canAdd =
+      !!draftWidth && !!draftHeight && widthNum >= 1 && heightNum >= 1;
+    const draftRatioLabel = canAdd ? ratioLabelOf(widthNum / heightNum) : null;
+
+    const submit = () => {
+      if (!canAdd) {
+        clearDraft();
+        return;
+      }
+      addStaffSize(widthNum, heightNum);
+      clearDraft();
+    };
+
+    return (
+      <div className="staff">
+        {/* Both dimensions are typed. A size IS its ratio, so asking for one
+            and deriving the other would just be picking a shape again. */}
+        <div className="custom-entry">
+          <label className="custom-label" htmlFor={`staff-w-${active.id}`}>
+            Add a size
+          </label>
+          <div className="custom-row">
+            <input
+              id={`staff-w-${active.id}`}
+              type="number"
+              className="custom-w"
+              value={draftWidth}
+              placeholder="width"
+              aria-label="Width"
+              min={1}
+              onChange={(e) => setDraftWidth(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+                if (e.key === 'Escape') clearDraft();
+              }}
+            />
+            <span className="size-x">×</span>
+            <input
+              type="number"
+              className="custom-w"
+              value={draftHeight}
+              placeholder="height"
+              aria-label="Height"
+              min={1}
+              onChange={(e) => setDraftHeight(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+                if (e.key === 'Escape') clearDraft();
+              }}
+            />
+            <button className="custom-add primary" disabled={!canAdd} onClick={submit}>
+              Add
+            </button>
+          </div>
+          {/* Says where the size will land before it is added, so a new crop
+              group is never a surprise. */}
+          {draftRatioLabel && (
+            <p className="custom-hint">
+              {group.some((p) => ratiosMatch(presetRatio(p), widthNum / heightNum))
+                ? `Joins the ${draftRatioLabel} crop`
+                : `Starts a new ${draftRatioLabel} crop`}
+            </p>
+          )}
+        </div>
+
+        {/* One list, split by crop. Each heading is a crop you frame once. */}
+        {group.map((preset) => {
+          const ratio = presetRatio(preset);
+          const isActive = preset.id === active.id;
+          return (
+            <div key={preset.id} className={`crop-group ${isActive ? 'on' : ''}`}>
+              <button
+                className="crop-group-head"
+                aria-pressed={isActive}
+                title={
+                  isActive
+                    ? `Framing the ${preset.name} crop`
+                    : `Switch to the ${preset.name} crop`
+                }
+                onClick={() => onSetActive(preset.id)}
+              >
+                <span className="crop-ratio">{ratioLabel(preset)}</span>
+                <span className="crop-count">
+                  {preset.sizes.filter(isSizeEnabled).length}/{preset.sizes.length}
+                </span>
+              </button>
+              <div className="sizes">
+                {preset.sizes.map((size, sizeIndex) =>
+                  renderSizeCell(preset, size, sizeIndex, ratio)
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {(() => {
+          const offered = recentSizes.filter(
+            (r) => !active.sizes.some((s) => s.width === r.width && s.height === r.height)
+          );
+          if (offered.length === 0) return null;
+          return (
+            <div className="recents">
+              <span className="recents-label">Recent</span>
+              <div className="recent-chips">
+                {offered.map((r) => (
+                  <button
+                    key={`${r.width}x${r.height}`}
+                    className="chip"
+                    title={`Add ${r.width}×${r.height}`}
+                    onClick={() => addStaffSize(r.width, r.height)}
+                  >
+                    {r.width}×{r.height}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {renderPresetSettings(active)}
+      </div>
+    );
+  };
+
+  const renderPreset = (preset: Preset) => {
+    const ratio = presetRatio(preset);
+    const isContain = preset.fit === 'contain';
+    // A contain preset letterboxes rather than crops, so a differing ratio is
+    // expected and never a distortion warning.
+    const bad = isContain ? [] : mismatchedSizes(preset);
+    const isActive = activeId === preset.id;
+
+    // Collapsed: a one-line summary of what this preset would export.
+    if (!isActive) {
+      return (
+        <button
+          key={preset.id}
+          className="preset-row-collapsed"
+          onClick={() => onSetActive(preset.id)}
+        >
+          <span className="preset-row-name">{preset.name}</span>
+          <span className="preset-row-meta">
+            {preset.sizes.length} size{preset.sizes.length === 1 ? '' : 's'}
+            {bad.length > 0 && (
+              <span className="warn" title="Some sizes do not match this preset's ratio.">
+                {' '}
+                !
+              </span>
+            )}
+          </span>
+          {/* The list states the shape; the expanded preset states the
+              exact figure. A row is for recognising a preset, not measuring
+              it. */}
+          <span
+            className={`ratio-badge ${isContain ? 'fit-badge' : ''}`}
+            title={isContain ? undefined : `Aspect ratio ${ratio.toFixed(3)}`}
+          >
+            {isContain ? 'fit' : ratioLabel(preset)}
+          </span>
+        </button>
+      );
+    }
+
+    return (
+      <div key={preset.id} className="preset active">
+        <div className="preset-row">
+          <input
+            className="preset-name"
+            value={preset.name}
+            onChange={(e) => update(preset.id, { name: e.target.value })}
+          />
+          <span className={`ratio-badge ${isContain ? 'fit-badge' : ''}`}>
+            {isContain ? 'fit' : ratio.toFixed(3)}
+          </span>
+          <button
+            className="danger"
+            onClick={() => {
+              const next = presets.filter((p) => p.id !== preset.id);
+              onSetPresets(next);
+              if (next.length) onSetActive(next[0].id);
+            }}
+            title="Delete preset"
+            disabled={presets.length === 1}
+          >
+            ×
+          </button>
+        </div>
+
+        {renderPresetSettings(preset)}
+
+        {isContain && preset.background === 'transparent' && preset.format === 'image/jpeg' && (
+          <p className="preset-note warn-note">
+            JPG has no transparency — these export on white. Switch to PNG or WebP to keep it.
+          </p>
+        )}
+
+        <div className="sizes">
+          {/*
+            * Adding a size starts here rather than at a button after the list:
+            * typing IS the add action. The old "+ size" button appended a copy
+            * of the first width that then had to be selected and overwritten.
+            *
+            * Both fields are offered and both are optional: fill only the
+            * width and the height follows the preset ratio; fill both to add a
+            * size at a shape of your own.
+            */}
+          <div className="size size-new">
+            <input
+              type="number"
+              value={draftWidth}
+              placeholder="w"
+              aria-label={`Add a size to ${preset.name} — width`}
+              title="Type a width, then press Enter. The height follows the preset ratio."
+              min={1}
+              onChange={(e) => setDraftWidth(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitDraft(preset, ratio);
+                if (e.key === 'Escape') clearDraft();
+              }}
+              onBlur={() => commitDraft(preset, ratio)}
+            />
+            <span className="size-x">×</span>
+            {/* Height is shown, not asked for: the preset's ratio decides it. */}
+            <span className="size-derived" title={`Height follows the ${ratio.toFixed(3)} ratio`}>
+              {draftWidth && Number(draftWidth) > 0
+                ? Math.max(1, Math.round(Number(draftWidth) / ratio))
+                : 'h'}
+            </span>
+          </div>
+          {preset.sizes.map((size, sizeIndex) =>
+            renderSizeCell(preset, size, sizeIndex, ratio)
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <aside className="panel">
       <div className="panel-head">
-        <h2>Presets</h2>
+        <h2>
+          <span className="idx">01</span>
+          Presets
+        </h2>
         <div className="panel-actions">
-          <button onClick={() => onSetPresets([...presets, newPreset()])} title="Add a preset">
-            +
-          </button>
           <button onClick={exportJson} title="Export presets as JSON">
             Save
           </button>
@@ -58,150 +611,98 @@ export function PresetPanel({ presets, activeId, onSetPresets, onSetActive }: Pr
         </div>
       </div>
 
-      {presets.map((preset) => {
-        const ratio = presetRatio(preset);
-        const bad = mismatchedSizes(preset);
-        const isActive = activeId === preset.id;
-
-        // Collapsed: a one-line summary of what this preset would export.
-        if (!isActive) {
+      <div className="panel-scroll">
+        {CATEGORY_ORDER.map((category: PresetCategory, categoryIndex: number) => {
+          const group = presets.filter((p) => p.category === category);
+          if (group.length === 0) return null;
+          // The group holding the active preset cannot be collapsed: hiding
+          // the preset the next export will use would leave no indication of
+          // what is selected. Its toggle is disabled and says why, rather
+          // than silently refusing the click.
+          const holdsActive = group.some((p) => p.id === activeId);
+          const isOpen = !collapsed.has(category) || holdsActive;
+          const bodyId = `preset-group-${category}`;
           return (
-            <button
-              key={preset.id}
-              className="preset-row-collapsed"
-              onClick={() => onSetActive(preset.id)}
-            >
-              <span className="preset-row-name">{preset.name}</span>
-              <span className="preset-row-meta">
-                {preset.sizes.length} size{preset.sizes.length === 1 ? '' : 's'}
-                {bad.length > 0 && <span className="warn" title="Some sizes do not match this preset's ratio."> !</span>}
-              </span>
-              <span className="ratio-badge">{ratio.toFixed(3)}</span>
-            </button>
-          );
-        }
-
-        return (
-          <div key={preset.id} className="preset active">
-            <div className="preset-row">
-              <input
-                className="preset-name"
-                value={preset.name}
-                onChange={(e) => update(preset.id, { name: e.target.value })}
-              />
-              <span className="ratio-badge">{ratio.toFixed(3)}</span>
-              <button
-                className="danger"
-                onClick={() => {
-                  const next = presets.filter((p) => p.id !== preset.id);
-                  onSetPresets(next);
-                  if (next.length) onSetActive(next[0].id);
-                }}
-                title="Delete preset"
-                disabled={presets.length === 1}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="preset-meta">
-              <label>
-                suffix
-                <input
-                  value={preset.suffix}
-                  onChange={(e) => update(preset.id, { suffix: e.target.value })}
-                />
-              </label>
-              <label>
-                format
-                <select
-                  value={preset.format}
-                  onChange={(e) => update(preset.id, { format: e.target.value as Preset['format'] })}
+            <section key={category} className={`preset-group ${isOpen ? '' : 'collapsed'}`}>
+              <div className="group-head">
+                <button
+                  className="group-toggle"
+                  aria-expanded={isOpen}
+                  // aria-controls is only set while the body exists: a
+                  // collapsed group unmounts its list, and pointing at a
+                  // missing id is an invalid reference. aria-expanded alone
+                  // carries the state.
+                  aria-controls={isOpen ? bodyId : undefined}
+                  onClick={() => toggleCategory(category)}
+                  disabled={holdsActive}
+                  title={
+                    holdsActive
+                      ? 'This category holds the active preset'
+                      : isOpen
+                        ? 'Collapse this category'
+                        : 'Expand this category'
+                  }
                 >
-                  <option value="image/jpeg">JPG</option>
-                  <option value="image/png">PNG</option>
-                  <option value="image/webp">WebP</option>
-                </select>
-              </label>
-              {preset.format !== 'image/png' && (
-                <label>
-                  quality {Math.round(preset.quality * 100)}
-                  <input
-                    type="range"
-                    min={40}
-                    max={100}
-                    value={Math.round(preset.quality * 100)}
-                    onChange={(e) => update(preset.id, { quality: Number(e.target.value) / 100 })}
-                  />
-                </label>
+                  <span className="idx">{String.fromCharCode(65 + categoryIndex)}</span>
+                  <h3>{CATEGORY_LABEL[category]}</h3>
+                  <span className="group-count">
+                    {group.length} preset{group.length === 1 ? '' : 's'}
+                  </span>
+                  <Chevron open={isOpen} />
+                </button>
+                {/*
+                  * Staff photos have no "add preset" action: you add a size,
+                  * and its ratio decides which crop group it joins. Offering
+                  * "+" here created a blank 400x400 preset on every click,
+                  * stacking duplicate 1:1 groups the grouping exists to avoid.
+                  */}
+                {category !== 'photo' && (
+                  <button
+                    className="ghost group-add"
+                    title={`Add a ${CATEGORY_LABEL[category].toLowerCase()} preset`}
+                    onClick={() => {
+                      const created = newPreset(category);
+                      // Adding to a collapsed group must reveal what it added.
+                      setCollapsed((prev) => {
+                        const next = new Set(prev);
+                        next.delete(category);
+                        return next;
+                      });
+                      onSetPresets([...presets, created]);
+                      onSetActive(created.id);
+                    }}
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              {isOpen && (
+                <div id={bodyId}>
+                  {category === 'photo' ? renderStaffSection(group) : group.map(renderPreset)}
+                </div>
               )}
-            </div>
-
-            <div className="sizes">
-              {preset.sizes.map((size) => {
-                const ok = !bad.includes(size);
-                return (
-                  <div key={size.id} className={`size ${ok ? '' : 'mismatch'}`}>
-                    <input
-                      type="number"
-                      value={size.width}
-                      onChange={(e) =>
-                        update(preset.id, {
-                          sizes: preset.sizes.map((s) =>
-                            s.id === size.id ? { ...s, width: Number(e.target.value) } : s
-                          ),
-                        })
-                      }
-                    />
-                    <span>×</span>
-                    <input
-                      type="number"
-                      value={size.height}
-                      onChange={(e) =>
-                        update(preset.id, {
-                          sizes: preset.sizes.map((s) =>
-                            s.id === size.id ? { ...s, height: Number(e.target.value) } : s
-                          ),
-                        })
-                      }
-                    />
-                    {!ok && (
-                      <span
-                        className="warn"
-                        title={`Ratio ${ratioOf(size).toFixed(3)} differs from the preset ratio ${ratio.toFixed(3)} — this size will be distorted.`}
-                      >
-                        !
-                      </span>
-                    )}
-                    <button
-                      className="danger"
-                      onClick={() =>
-                        update(preset.id, { sizes: preset.sizes.filter((s) => s.id !== size.id) })
-                      }
-                      title="Remove size"
-                      disabled={preset.sizes.length === 1}
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-              <button
-                className="add-size"
-                onClick={() => {
-                  const first = preset.sizes[0];
-                  const w = first ? first.width : 400;
-                  update(preset.id, {
-                    sizes: [...preset.sizes, newSize(w, Math.round(w / ratio))],
-                  });
-                }}
-              >
-                + size
-              </button>
-            </div>
-          </div>
-        );
-      })}
+            </section>
+          );
+        })}
+      </div>
     </aside>
+  );
+}
+
+/**
+ * A hard-edged caret rather than a rotating arrow glyph: straight strokes and
+ * right angles match the square-cell language used elsewhere in the panel.
+ */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`chevron${open ? ' open' : ''}`}
+      width="9"
+      height="9"
+      viewBox="0 0 10 10"
+      aria-hidden="true"
+    >
+      <path d="M1.5 3.5 5 7 8.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
   );
 }

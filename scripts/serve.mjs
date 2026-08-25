@@ -79,7 +79,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  Staff Photo Cropper — production build`);
+  console.log(`\n  Framewise — production build`);
   console.log(`  http://localhost:${PORT}\n`);
   console.log('  Open that URL, then install the app:');
   console.log('    Chrome/Edge  ⋮  →  Cast, save and share  →  Install page as app\n');

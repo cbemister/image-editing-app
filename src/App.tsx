@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Cropper } from './components/Cropper';
 import { PresetPanel } from './components/PresetPanel';
-import { loadPresets, savePresets } from './lib/presets';
+import {
+  addRecentSize,
+  loadPresets,
+  loadRecentSizes,
+  savePresets,
+  saveRecentSizes,
+  type RecentSize,
+} from './lib/presets';
 import type { CropRect, LoadedImage, Preset } from './lib/types';
-import { presetRatio } from './lib/types';
-import { cropFor, cropAroundFace, defaultCrop, refitCropToRatio } from './lib/crop';
+import { isSizeEnabled, presetRatio } from './lib/types';
+import { cropFor, cropAroundFace, cropRatioFor, defaultCrop, refitCropToRatio } from './lib/crop';
 import { detectFace, preloadDetector, type FaceBox } from './lib/face';
 import { applyUpdate, registerServiceWorker } from './lib/sw-register';
 import { exportImage } from './lib/export';
@@ -29,6 +36,7 @@ function getInitialTheme(): Theme {
 
 export default function App() {
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets());
+  const [recentSizes, setRecentSizes] = useState<RecentSize[]>(() => loadRecentSizes());
   const [images, setImages] = useState<LoadedImage[]>([]);
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -39,6 +47,8 @@ export default function App() {
   const [outDirName, setOutDirName] = useState<string | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [dragActive, setDragActive] = useState(false);
+  const dragDepth = useRef(0);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -46,6 +56,14 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => savePresets(presets), [presets]);
+
+  useEffect(() => saveRecentSizes(recentSizes), [recentSizes]);
+
+  const recordSize = useCallback(
+    (width: number, height: number) =>
+      setRecentSizes((prev) => addRecentSize(prev, width, height)),
+    []
+  );
 
   // Load the face model in the background so the first Auto-frame is instant.
   useEffect(() => preloadDetector(), []);
@@ -133,7 +151,12 @@ export default function App() {
         setCrop(
           image.id,
           preset.id,
-          cropAroundFace(face, image.naturalWidth, image.naturalHeight, presetRatio(preset))
+          cropAroundFace(
+            face,
+            image.naturalWidth,
+            image.naturalHeight,
+            cropRatioFor(preset) ?? image.naturalWidth / image.naturalHeight
+          )
         );
       }
       return { framed: targets.length, source: face.source };
@@ -211,12 +234,15 @@ export default function App() {
 
   const resetCrop = () => {
     if (!activeImage || !activePreset) return;
+    const ratio = cropRatioFor(activePreset);
     setCrop(
       activeImage.id,
       activePreset.id,
-      defaultCrop(activeImage.naturalWidth, activeImage.naturalHeight, presetRatio(activePreset))
+      ratio === null
+        ? { x: 0, y: 0, width: activeImage.naturalWidth, height: activeImage.naturalHeight }
+        : defaultCrop(activeImage.naturalWidth, activeImage.naturalHeight, ratio)
     );
-    setStatus('Crop reset to centered.');
+    setStatus(ratio === null ? 'Crop reset to full image.' : 'Crop reset to centered.');
   };
 
   const chooseOutputFolder = async () => {
@@ -264,30 +290,41 @@ export default function App() {
     }
   };
 
+  // Only enabled sizes are rendered (see renderAll), so the count on the
+  // export button has to agree with what will actually be written.
   const totalOutputs = useMemo(
-    () => (activePreset?.sizes.length ?? 0) * images.length,
+    () =>
+      (activePreset?.sizes.filter(isSizeEnabled).length ?? 0) * images.length,
     [activePreset, images.length]
   );
 
   return (
     <div
       className="app"
+      onDragEnter={(e) => {
+        e.preventDefault();
+        dragDepth.current++;
+        if (e.dataTransfer.types.includes('Files')) setDragActive(true);
+      }}
       onDragOver={(e) => e.preventDefault()}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragActive(false);
+      }}
       onDrop={(e) => {
         e.preventDefault();
+        dragDepth.current = 0;
+        setDragActive(false);
         addFiles(e.dataTransfer.files);
       }}
     >
       <header className="topbar">
-        <h1>Staff Photo Cropper</h1>
+        <h1>
+          <LogoMark />
+          <span>Framewise</span>
+        </h1>
         <div className="topbar-actions">
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-          </button>
           <label className="file-btn primary">
             Add images
             <input
@@ -308,6 +345,7 @@ export default function App() {
             />
             size in filename
           </label>
+          <span className="topbar-sep" />
           <button
             onClick={() => runExport('active')}
             disabled={busy || !activeImage}
@@ -323,6 +361,14 @@ export default function App() {
           >
             Export all ({totalOutputs})
           </button>
+          <span className="topbar-sep" />
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            <ThemeIcon theme={theme} />
+          </button>
         </div>
       </header>
 
@@ -330,6 +376,8 @@ export default function App() {
         <PresetPanel
           presets={presets}
           activeId={activePresetId}
+          recentSizes={recentSizes}
+          onRecordSize={recordSize}
           onSetPresets={setPresets}
           onSetActive={(id) => {
             setActivePresetId(id);
@@ -337,7 +385,10 @@ export default function App() {
             const preset = presets.find((p) => p.id === id);
             if (activeImage && preset && activeImage.crops[id] === undefined) {
               const prior = activePresetId ? activeImage.crops[activePresetId] : undefined;
-              if (prior) {
+              // A free-ratio (contain) preset keeps the incoming crop as-is;
+              // there is no output shape to refit it to.
+              const nextRatio = cropRatioFor(preset);
+              if (prior && nextRatio !== null) {
                 setCrop(
                   activeImage.id,
                   id,
@@ -345,9 +396,11 @@ export default function App() {
                     prior,
                     activeImage.naturalWidth,
                     activeImage.naturalHeight,
-                    presetRatio(preset)
+                    nextRatio
                   )
                 );
+              } else if (prior) {
+                setCrop(activeImage.id, id, prior);
               }
             }
           }}
@@ -370,26 +423,43 @@ export default function App() {
                   Reset
                 </button>
                 <span className="spacer" />
+                {/*
+                 * Three separate cells rather than one nowrap string: at narrow
+                 * widths the facts wrap onto their own rows instead of being
+                 * clipped mid-word, and each keeps a readable rule between it
+                 * and the next.
+                 */}
                 <span className="dims">
-                  {activeImage.naturalWidth}×{activeImage.naturalHeight} source ·{' '}
-                  {activePreset.name} @ {presetRatio(activePreset).toFixed(3)}
+                  <span className="dim">
+                    {activeImage.naturalWidth}×{activeImage.naturalHeight} source
+                  </span>
+                  <span className="dim">{activePreset.name}</span>
+                  <span className="dim">
+                    {activePreset.fit === 'contain'
+                      ? 'fit whole image'
+                      : `ratio ${presetRatio(activePreset).toFixed(3)}`}
+                  </span>
                 </span>
               </div>
               <Cropper
                 bitmap={activeImage.bitmap}
                 naturalWidth={activeImage.naturalWidth}
                 naturalHeight={activeImage.naturalHeight}
-                ratio={presetRatio(activePreset)}
+                ratio={cropRatioFor(activePreset)}
                 crop={cropFor(activeImage, activePreset)}
                 onChange={(crop) => setCrop(activeImage.id, activePreset.id, crop)}
               />
             </>
           ) : (
             <div className="empty">
-              <p>Drop staff photos here, or use “Add images”.</p>
-              <p className="hint">
-                Everything runs locally in your browser — no photo ever leaves this machine.
-              </p>
+              <div className={`empty-card ${dragActive ? 'drag-active' : ''}`}>
+                <UploadIcon className="icon" />
+                <p>{dragActive ? 'Drop to add images' : 'Drop images here, or use “Add images”.'}</p>
+                <p className="hint">
+                  Staff photos, social graphics, and logos — cropped once, exported at every
+                  size. Everything runs locally; no image ever leaves this machine.
+                </p>
+              </div>
             </div>
           )}
         </main>
@@ -435,19 +505,56 @@ export default function App() {
   );
 }
 
-function SunIcon() {
+/**
+ * Two offset frames -- the crop box and the output frame -- which is the whole
+ * idea of the app in one mark.
+ */
+function LogoMark() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="4.5" />
-      <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    <svg className="logomark" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="14" height="14" rx="3" className="logomark-back" />
+      <rect
+        x="7.75"
+        y="7.75"
+        width="12.5"
+        height="12.5"
+        rx="3"
+        className="logomark-front"
+      />
     </svg>
   );
 }
 
-function MoonIcon() {
+/*
+ * A two-cell split square: one cell filled, one outlined. A sun/moon glyph
+ * would belong to a different visual language than the geometric cells used
+ * everywhere else in this interface. The filled cell swaps sides with the
+ * theme, so the icon states which way the toggle goes.
+ */
+function ThemeIcon({ theme }: { theme: Theme }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20.7 14.3A8.5 8.5 0 0 1 9.7 3.3a.7.7 0 0 0-.9-.9 10 10 0 1 0 12.8 12.8.7.7 0 0 0-.9-.9z" />
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+      <rect className={`cell${theme === 'dark' ? ' on' : ''}`} x="1" y="1" width="7" height="14" />
+      <rect className={`cell${theme === 'dark' ? '' : ' on'}`} x="8" y="1" width="7" height="14" />
+    </svg>
+  );
+}
+
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 15V3M12 3L7.5 7.5M12 3l4.5 4.5" />
+      <path d="M4 15v3.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V15" />
     </svg>
   );
 }

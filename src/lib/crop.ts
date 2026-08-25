@@ -108,10 +108,24 @@ export function refitCropToRatio(
   );
 }
 
+/**
+ * The ratio the crop box is locked to for a preset, or null when it is free.
+ *
+ * A 'contain' preset letterboxes whatever it is given, so forcing the crop to
+ * the frame ratio would be wrong -- you are choosing WHAT to fit (trimming
+ * whitespace around a logo), not matching the output shape.
+ */
+export function cropRatioFor(preset: Preset): number | null {
+  return preset.fit === 'contain' ? null : presetRatio(preset);
+}
+
 /** The crop for an image under a preset, computed on demand if not yet set. */
 export function cropFor(image: LoadedImage, preset: Preset): CropRect {
-  return (
-    image.crops[preset.id] ??
-    defaultCrop(image.naturalWidth, image.naturalHeight, presetRatio(preset))
-  );
+  const existing = image.crops[preset.id];
+  if (existing) return existing;
+  // Free-ratio presets start as the whole image; the user trims in from there.
+  if (preset.fit === 'contain') {
+    return { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight };
+  }
+  return defaultCrop(image.naturalWidth, image.naturalHeight, presetRatio(preset));
 }

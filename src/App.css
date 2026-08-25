@@ -1,34 +1,118 @@
+/* ==========================================================================
+   Framewise — Grid System design tokens
+
+   The structural idea: nothing floats. There are no shadows and no rounded
+   corners anywhere in this interface. Separation is carried entirely by a
+   three-tier rule hierarchy, where a rule's weight states what it divides:
+
+     --rule-1 (3px)  app shell   topbar, panel/stage split, filmstrip, status
+     --rule-2 (2px)  section     panel heads, group heads, toolbars
+     --rule-3 (1px)  row         list rows, button seams, badges, meta
+
+   Pick the tier from what the rule separates, never from how it looks on its
+   own — a row given the shell weight flattens the whole hierarchy.
+
+   Dark is the default theme; light overrides below. Dark is deliberately not
+   an inversion: --line is a muted grey, well below text contrast. Setting it
+   equal to --text makes every 2-3px rule shout as loudly as a headline.
+   ========================================================================== */
+
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-2: #1e222b;
-  --line: #2a2f3a;
-  --text: #e6e9ef;
-  --muted: #949cad;
-  --accent: #4f8cff;
-  --danger: #ff5f56;
-  --warn: #f5a623;
-  --checker-a: #15181e;
-  --checker-b: #191d24;
-  --hover-border: #3d4557;
-  --hover-bg: #252a35;
+  /* surfaces */
+  --bg: #18181a;
+  --panel: #1a1a1c;
+  --panel-2: #212124;
+  --panel-3: #28282b;
+  --raised: #212124;
+
+  /* rules — structural, intentionally quieter than text */
+  --line: #a8a8ac;
+  --line-soft: #38383c;
+  --line-faint: #29292c;
+  --line-strong: #a8a8ac;
+
+  /* text */
+  --text: #e4e4e6;
+  --text-dim: #a5a5aa;
+  --muted: #75757a;
+
+  /* accent + semantics — one signal colour, used as a stamp */
+  --accent: #e35555;
+  --accent-hover: #ec6b6b;
+  --accent-press: #c94747;
+  --accent-fg: #18181a;
+  --accent-soft: #2c1c1c;
+  --accent-ring: #e35555;
+
+  --ink-blue: #6b7dff;
+  --ink-blue-soft: #1c2038;
+
+  --danger: #e35555;
+  --danger-soft: #2c1c1c;
+  --warn: #f0b355;
+
+  /* canvas checkerboard */
+  --checker-a: #1e1e21;
+  --checker-b: #242427;
+
+  --hover-bg: #242427;
+  --hover-border: #a8a8ac;
+
+  /* rule-weight tiers — the hierarchy backbone */
+  --rule-1: 3px;
+  --rule-2: 2px;
+  --rule-3: 1px;
+
+  /* Radius is 0 everywhere, without exception. Kept as tokens so the
+     constraint is self-documenting rather than an omission. */
+  --r: 0px;
+  --r-sm: 0px;
+  --r-md: 0px;
+  --r-lg: 0px;
+
+  --font-head: 'Archivo Expanded', 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --font-ui: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
   color-scheme: dark;
 }
 
 :root[data-theme='light'] {
-  --bg: #f4f5f7;
+  --bg: #ffffff;
   --panel: #ffffff;
-  --panel-2: #eef0f3;
-  --line: #d8dce3;
-  --text: #1a1d24;
-  --muted: #5b6270;
-  --accent: #3568d4;
-  --danger: #d33a32;
-  --warn: #b5730a;
-  --checker-a: #e4e6ea;
-  --checker-b: #eceef1;
-  --hover-border: #b9bfca;
-  --hover-bg: #e2e5eb;
+  --panel-2: #f2f2f0;
+  --panel-3: #e8e8e4;
+  --raised: #ffffff;
+
+  --line: #17171a;
+  --line-soft: #d4d4d0;
+  --line-faint: #e8e8e5;
+  --line-strong: #17171a;
+
+  --text: #17171a;
+  --text-dim: #4a4a4e;
+  --muted: #86868c;
+
+  --accent: #d92b2b;
+  --accent-hover: #c22222;
+  --accent-press: #a81c1c;
+  --accent-fg: #ffffff;
+  --accent-soft: #fce9e9;
+  --accent-ring: #d92b2b;
+
+  --ink-blue: #1f3ac4;
+  --ink-blue-soft: #e8ebfa;
+
+  --danger: #d92b2b;
+  --danger-soft: #fce9e9;
+  --warn: #b8790a;
+
+  --checker-a: #efefec;
+  --checker-b: #f7f7f5;
+
+  --hover-bg: #f2f2f0;
+  --hover-border: #17171a;
+
   color-scheme: light;
 }
 
@@ -46,7 +130,20 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 13px/1.45 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numbers that change in place (dimensions, counts) must not reflow. */
+input[type='number'],
+.dims,
+.ratio-badge,
+.size-label,
+.thumb span,
+.statusbar {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .app {
@@ -55,74 +152,163 @@ body {
   height: 100%;
 }
 
-/* ---- top bar ---- */
+/* ---- focus: one ring, everywhere ---- */
+:where(button, input, select, label.file-btn, .thumb, .preset-row-collapsed):focus-visible {
+  outline: var(--rule-2) solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+/* ==========================================================================
+   Top bar
+   ========================================================================== */
+
 .topbar {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 14px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
   background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--rule-1) solid var(--line);
 }
 
+/* The brand sits in its own cell, closed by a shell-weight rule. */
 .topbar h1 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-  letter-spacing: 0.2px;
-}
-
-.topbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  flex-wrap: wrap;
+  gap: 11px;
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0;
+  padding: 13px 20px;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-right: var(--rule-1) solid var(--line);
 }
+
+.logomark {
+  display: block;
+  overflow: visible;
+}
+
+.logomark-back {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+}
+
+.logomark-front {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1.8;
+}
+
+/* No gap: adjacent controls are separated by their shared seam alone. */
+.topbar-actions {
+  display: flex;
+  align-items: stretch;
+  margin-left: auto;
+}
+
+/* A heavier seam separates the export cluster from everything else. */
+.topbar-sep {
+  width: var(--rule-2);
+  background: var(--line);
+  align-self: stretch;
+}
+
+/* ==========================================================================
+   Controls
+   ========================================================================== */
 
 button,
 .file-btn {
-  background: var(--panel-2);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 6px 11px;
+  border: 0;
+  border-left: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
+  padding: 12px 16px;
   font: inherit;
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
+}
+
+/* The row's outer edge is the shell rule; the first control adds no seam. */
+.topbar-actions > button:first-child,
+.topbar-actions > label:first-child {
+  border-left: 0;
 }
 
 button:hover:not(:disabled),
 .file-btn:hover {
-  border-color: var(--hover-border);
   background: var(--hover-bg);
 }
 
+/* No lift, no scale — motion restraint is part of the system. */
+button:active:not(:disabled),
+.file-btn:active {
+  background: var(--line-soft);
+}
+
 button:disabled {
-  opacity: 0.42;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 button.primary,
 .file-btn.primary {
   background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 500;
+  border-left-color: var(--accent-press);
+  color: var(--accent-fg);
+  font-weight: 700;
+}
+
+button.primary:hover:not(:disabled),
+.file-btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+button.primary:active:not(:disabled) {
+  background: var(--accent-press);
+}
+
+button.ghost {
+  background: transparent;
+  border-left-color: transparent;
+  color: var(--text-dim);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text);
 }
 
 button.danger {
-  background: transparent;
-  border: none;
   color: var(--muted);
-  padding: 2px 6px;
-  font-size: 15px;
+  background: transparent;
+  border-left-color: transparent;
+  padding: 3px 7px;
+  font-size: 13px;
   line-height: 1;
 }
 
-button.danger:hover {
+button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
   color: var(--danger);
-  background: transparent;
 }
 
 .file-btn input[type='file'] {
@@ -130,162 +316,866 @@ button.danger:hover {
 }
 
 .check {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-}
-
-.theme-toggle {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 30px;
-  padding: 6px 0;
+  gap: 7px;
+  padding: 12px 16px;
+  border-left: var(--rule-3) solid var(--line-soft);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-/* ---- layout ---- */
+.check input[type='checkbox'] {
+  accent-color: var(--accent);
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Inline, last in the actions row — never floated over the export controls. */
+.theme-toggle {
+  padding: 12px 15px;
+  color: var(--text-dim);
+  background: transparent;
+}
+
+.theme-toggle:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--hover-bg);
+}
+
+.theme-toggle svg {
+  display: block;
+}
+
+.theme-toggle .cell {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.theme-toggle .cell.on {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+
 .body {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 300px 1fr;
   min-height: 0;
 }
 
-/* ---- preset panel ---- */
+/* ==========================================================================
+   Preset panel
+   ========================================================================== */
+
 .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background: var(--panel);
-  border-right: 1px solid var(--line);
-  overflow-y: auto;
-  padding: 10px;
+  border-right: var(--rule-1) solid var(--line);
 }
 
+/* A tinted band, not text floating above a list. */
 .panel-head {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--panel-2);
+  border-bottom: var(--rule-2) solid var(--line);
 }
 
 .panel-head h2 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 9px;
   margin: 0;
+  font-family: var(--font-head);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text);
 }
 
 .panel-actions {
-  margin-left: auto;
   display: flex;
-  gap: 5px;
+  gap: 0;
 }
 
 .panel-actions button,
 .panel-actions .file-btn {
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 5px 10px;
+  font-size: 10px;
+  background: var(--bg);
+  border: var(--rule-3) solid var(--line-soft);
+  border-left: 0;
+  color: var(--text-dim);
 }
 
-.preset {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 9px;
-  margin-bottom: 9px;
+.panel-actions > *:first-child {
+  border-left: var(--rule-3) solid var(--line-soft);
+}
+
+.panel-actions button:hover,
+.panel-actions .file-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-soft) transparent;
+}
+
+/* ---- category groups ---- */
+
+/* Numbers render as filled squares, not bare text — this is what makes the
+   index read as structure rather than decoration. */
+.idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  background: var(--text);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  flex: 0 0 auto;
+}
+
+.panel-head .idx {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.preset-group {
+  padding-top: 0;
+}
+
+/*
+ * Not sticky: an expanded preset is taller than the viewport, so a pinned
+ * header would sit on top of the rows scrolling under it. A solid background
+ * and a hairline rule keep the groups legible without overlapping anything.
+ */
+.group-head {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0;
+  padding: 0;
+  background: var(--panel);
+  border-top: var(--rule-2) solid var(--line);
+}
+
+.preset-group:first-child .group-head {
+  border-top: 0;
+}
+
+/* A collapsed group closes with its own rule, so the stack of headers reads
+   as a list of sections rather than one undivided run. */
+.preset-group.collapsed .group-head {
+  border-bottom: var(--rule-3) solid var(--line-faint);
+}
+
+/* The whole header is the hit target, not just the label. */
+.group-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 16px;
+  background: transparent;
+  border: 0;
+  text-align: left;
   cursor: pointer;
 }
 
+.group-toggle:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+/* The active group's toggle is disabled, but its header is still a heading
+   that has to read at full strength — only the chevron dims to show that
+   this one cannot be folded away. */
+.group-toggle:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.group-toggle:disabled .chevron {
+  opacity: 0.3;
+}
+
+.group-head h3 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* Pushed to the right so the chevron always lands in the same column. */
+.group-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+
+.chevron.open {
+  transform: rotate(0deg);
+}
+
+.group-toggle:hover .chevron {
+  color: var(--text);
+}
+
+.group-add {
+  padding: 2px 8px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+/* ---- collapsed rows ---- */
+
+.preset-row-collapsed {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 16px;
+  background: transparent;
+  border: 0;
+  border-top: var(--rule-3) solid var(--line-faint);
+  border-left: 5px solid transparent;
+  border-radius: 0;
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.preset-row-collapsed:hover {
+  background: var(--hover-bg);
+  border-left-color: var(--line-soft);
+  color: var(--text);
+}
+
+.preset-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-row-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---- expanded preset ---- */
+
+.preset {
+  padding: 12px 16px 14px;
+}
+
+/* The heaviest marker in the system: with no glow or shadow to reinforce
+   "active", the bar alone has to carry it. */
 .preset.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset;
+  background: var(--panel-2);
+  border-left: 5px solid var(--accent);
+  border-top: var(--rule-2) solid var(--line);
+  border-bottom: var(--rule-2) solid var(--line);
 }
 
 .preset-row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
 
 .preset-name {
   flex: 1;
+  min-width: 0;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  border: var(--rule-3) solid transparent;
+  border-radius: 0;
   color: var(--text);
   font: inherit;
-  font-weight: 600;
-  padding: 3px 5px;
-  min-width: 0;
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  padding: 3px 6px;
+  margin-left: -6px;
 }
 
-.preset-name:hover,
+.preset-name:hover {
+  border-color: var(--line-soft);
+}
+
 .preset-name:focus {
-  border-color: var(--line);
   background: var(--bg);
+  border-color: var(--accent);
   outline: none;
 }
 
 .ratio-badge {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: transparent;
+  border: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
+  padding: 2px 7px;
+}
+
+/* Ink-blue is the sole secondary, and only ever means "fit". */
+.ratio-badge.fit-badge {
+  color: var(--ink-blue);
+  background: var(--ink-blue-soft);
+  border-color: var(--ink-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .preset-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
-  margin: 8px 0;
-  font-size: 11px;
-  color: var(--muted);
+  gap: 6px 14px;
+  margin-top: 10px;
 }
 
+/*
+ * Labels sit beside their control rather than above it. Stacking cost a line
+ * per field, which is most of why the expanded preset needed a scroll box.
+ */
 .preset-meta label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .preset-meta input[type='text'],
 .preset-meta input:not([type]),
 .preset-meta select {
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 4px;
   color: var(--text);
+  border: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
+  padding: 5px 7px;
   font: inherit;
-  padding: 2px 4px;
-  width: 82px;
+  font-size: 12px;
+  min-width: 84px;
+}
+
+.preset-meta select {
+  cursor: pointer;
+}
+
+.preset-meta input:focus,
+.preset-meta select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.preset-meta input[type='text'],
+.preset-meta input:not([type]) {
+  font-family: var(--font-mono);
 }
 
 .preset-meta input[type='range'] {
-  width: 72px;
+  width: 84px;
+  accent-color: var(--accent);
+  margin: 0;
 }
 
-.sizes {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.size {
+/* background colour picker (contain presets) */
+.bg-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
-.size input[type='number'] {
-  width: 58px;
+.bg-controls input[type='color'] {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  cursor: pointer;
+}
+
+.bg-controls input[type='color']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bg-controls .check {
+  font-size: 10.5px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.preset-note {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.warn-note {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border-left: var(--rule-2) solid var(--warn);
+  border-radius: 0;
+  padding: 7px 10px;
+}
+
+/* ---- sizes ---- */
+
+/*
+ * Sizes flow into a wrapped grid instead of one row each: seven sizes take
+ * two or three lines rather than seven, which is what lets the whole preset
+ * fit without an inner scroll box.
+ */
+/*
+ * Spacing here is deliberately uneven: the two inputs of one size are bound
+ * tight (3px) while cells are pushed well apart (18px) and divided by a rule.
+ * A uniform gap spaced "600 × 600" the same as the boundary to the next size,
+ * so the pairs did not read as units.
+ */
+/* Chips space themselves; the gap is the only separation they need. */
+.sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/*
+ * Separation is expressed as a ratio, not a fixed gap: whatever the width,
+ * the space between two sizes must clearly exceed the space inside one, or
+ * the pairs stop reading as units. The sidebar gets the tighter end of that
+ * ratio so two pairs still fit per line; wider panels get the generous one.
+ */
+/*
+ * No divider rule: each size now carries its own border as a chip, so a
+ * separator between them was a second edge doing the first one's job — and it
+ * hung in empty space at the end of every wrapped line.
+ */
+.size {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+}
+
+
+/*
+ * The delete control keeps its space at all times and only fades in. It used
+ * to expand from zero width on hover, which reflowed the whole wrapped grid —
+ * cells jumped to the next line and back as the pointer moved across them.
+ * A stable layout is worth the 17px: hover must never move the thing being
+ * hovered, or anything next to it.
+ *
+ * It stays in flow (never overlapping the height input, so aiming at the last
+ * digit cannot hit delete) and is hidden with visibility as well as opacity,
+ * so it is never an invisible click target.
+ */
+/*
+ * Overlaid on the chip's top-right corner, outside the text flow. As an
+ * in-flow sibling it reserved 17px on every chip even while hidden, which is
+ * most of a third column's width across the list. It still only appears on
+ * hover or focus, and still never moves the layout when it does.
+ */
+.size-remove {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  border: var(--rule-3) solid var(--line-soft);
+  border-left: var(--rule-3) solid var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 100ms ease;
+}
+
+.size:hover .size-remove,
+.size:focus-within .size-remove {
+  opacity: 1;
+  visibility: visible;
+}
+
+.size-remove:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* A preset must keep at least one size; nothing to offer when only one is left. */
+.size-remove:disabled {
+  display: none;
+}
+
+/* Sized so two width×height pairs fit across the 300px sidebar. Numbers are
+   tabular, so four digits fit comfortably at this width. */
+.size input[type='number'] {
+  width: 46px;
+  background: var(--bg);
   color: var(--text);
+  border: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
+  padding: 4px 5px;
   font: inherit;
-  padding: 2px 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  -moz-appearance: textfield;
+}
+
+/* The spinners cost ~15px per input and are useless for pixel dimensions. */
+.size input[type='number']::-webkit-outer-spin-button,
+.size input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.size input[type='number']:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* The × is the pair's own separator and needs no gap around it — the space
+   that matters is between one size and the next, not inside a single size. */
+.size-x {
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ---- staff photos: shape, then dimensions ---- */
+
+.staff {
+  padding: 12px 16px 14px;
+}
+
+/* ---- add a size: the one place anything is typed ---- */
+
+.custom-entry {
+  margin-bottom: 14px;
+  padding: 11px 12px 12px;
+  background: var(--panel-2);
+  border: var(--rule-2) solid var(--line);
+}
+
+.custom-label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font-head);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.custom-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.custom-w {
+  width: 74px;
+  background: var(--bg);
+  color: var(--text);
+  border: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
+  padding: 6px 8px;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  -moz-appearance: textfield;
+}
+
+.custom-w::-webkit-outer-spin-button,
+.custom-w::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-w:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* The derived height, stated rather than asked for. */
+.custom-h {
+  min-width: 52px;
+  padding: 6px 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.size span {
+.custom-add {
+  margin-left: auto;
+  padding: 7px 14px;
+  font-size: 10px;
+  border-left: 0;
+}
+
+/* Where a typed size will land, said before it is committed. */
+.custom-hint {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
   color: var(--muted);
+}
+
+/* ---- crop groups: one heading per crop you frame ---- */
+
+.crop-group {
+  margin-top: 14px;
+}
+
+.crop-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--rule-3) solid var(--line-faint);
+  color: var(--muted);
+  text-align: left;
+}
+
+.crop-group-head:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+
+.crop-ratio {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.crop-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+/* The group being framed right now: the accent marks which crop the stage
+   is showing, so the list and the canvas never disagree. */
+.crop-group.on > .crop-group-head {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.crop-group .sizes {
+  margin-top: 8px;
+}
+
+/* ---- recent dimensions ---- */
+
+.recents {
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: var(--rule-3) solid var(--line-faint);
+}
+
+.recents-label {
+  display: block;
+  margin-bottom: 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.recent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  background: transparent;
+  border: var(--rule-3) solid var(--line-soft);
+  color: var(--text-dim);
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: transparent;
+}
+
+/* Already in this shape's list — shown, but nothing left to add. */
+.chip.on:disabled {
+  opacity: 1;
+  color: var(--muted);
+  border-style: dashed;
+  border-color: var(--line-faint);
+}
+
+/*
+ * A size is a toggle: selected sizes export, the rest do not. Sizes start off
+ * and you opt in, so the accent border marks the few that are chosen — this is
+ * the state that decides what lands on disk, so it has to be readable without
+ * hovering or counting.
+ */
+.size-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 4px 7px;
+  background: transparent;
+  border: var(--rule-3) solid var(--line-soft);
+  border-left: 3px solid var(--line-soft);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.size-pick:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+/* Skipped: struck through and receded, but still legible — it is a choice
+   you can reverse, not an absence. */
+/*
+ * Selected sizes are the exception now, so they carry the emphasis: sizes
+ * start off and are opted in. Striking through the unselected ones would put
+ * a line through almost the whole list and read as breakage rather than as a
+ * default.
+ */
+.size-pick[aria-pressed='true'] {
+  background: var(--bg);
+  border-left-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/*
+ * The new-size row leads the list, marked as an entry point rather than a
+ * value: dashed edges say "nothing here yet", and it fills in as you type.
+ */
+.sizes .size-new input[type='number'] {
+  border-style: dashed;
+  color: var(--text);
+}
+
+.sizes .size-new input[type='number']:focus {
+  border-style: solid;
+}
+
+.size-new input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/*
+ * A derived height is output, not input: it reads as plain text in the same
+ * mono column as the width it follows from, with no box implying it can be
+ * typed into. Only the first size — the one that sets the shape — offers a
+ * height field.
+ */
+.size-derived {
+  width: 46px;
+  padding: 4px 5px;
+  border: var(--rule-3) solid transparent;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Size labels ("thumbnail", "hero") are carried as tooltips rather than
+ * rendered inline: as text they made every cell a different width and the
+ * grid stopped reading as a grid. The dimensions are the identifying detail.
+ */
+.size-label {
+  display: none;
 }
 
 .size.mismatch input[type='number'] {
@@ -298,35 +1188,29 @@ button.danger:hover {
   cursor: help;
 }
 
-.add-size {
-  align-self: flex-start;
-  margin-top: 4px;
-  padding: 3px 8px;
-  font-size: 11px;
-  color: var(--muted);
-}
+/* ==========================================================================
+   Stage
+   ========================================================================== */
 
-.preset-foot {
-  margin-top: 7px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-/* ---- stage ---- */
 .stage {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  background: var(--bg);
 }
 
 .stage-tools {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border-bottom: var(--rule-2) solid var(--line);
   background: var(--panel);
+}
+
+.stage-tools > button:first-child {
+  border-left: 0;
 }
 
 .spacer {
@@ -334,17 +1218,39 @@ button.danger:hover {
 }
 
 .dims {
-  color: var(--muted);
+  display: flex;
+  align-items: stretch;
+  border-left: var(--rule-2) solid var(--line);
   font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Each measured fact is its own cell, divided by a row-weight rule. */
+.dim {
+  display: flex;
+  align-items: center;
+  padding: 11px 14px;
+  white-space: nowrap;
+}
+
+.dim + .dim {
+  border-left: var(--rule-3) solid var(--line-soft);
 }
 
 .cropper-wrap {
   position: relative;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%) 50% /
-    22px 22px;
+  background-color: var(--checker-a);
+  background-image:
+    linear-gradient(45deg, var(--checker-b) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker-b) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker-b) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker-b) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
 
 .cropper-wrap canvas {
@@ -352,121 +1258,302 @@ button.danger:hover {
   touch-action: none;
 }
 
+/* ---- empty state ---- */
+
 .empty {
+  flex: 1;
   display: grid;
-  place-content: center;
+  place-items: center;
+  padding: 24px;
+}
+
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 440px;
+  padding: 44px 40px;
   text-align: center;
+  border: var(--rule-2) dashed var(--line-soft);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--text-dim);
+  transition:
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.empty-card .icon {
   color: var(--muted);
-  gap: 6px;
+  transition: color 140ms ease, transform 140ms ease;
 }
 
-.empty .hint {
-  font-size: 11px;
-  opacity: 0.75;
+.empty-card p {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
 }
 
-/* ---- filmstrip ---- */
+/* The headline carries the uppercase display treatment; running prose does
+   not — uppercase costs too much legibility at this length. */
+.empty-card .hint {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  max-width: 38ch;
+}
+
+.empty-card.drag-active {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-soft);
+}
+
+.empty-card.drag-active .icon {
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   Filmstrip
+   ========================================================================== */
+
 .filmstrip {
   display: flex;
-  gap: 7px;
-  padding: 8px 12px;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
+  gap: 0;
+  align-items: stretch;
+  padding: 0;
   overflow-x: auto;
-  min-height: 84px;
-  align-items: center;
+  background: var(--panel);
+  border-top: var(--rule-1) solid var(--line);
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-soft) transparent;
 }
 
 .thumb {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px;
   background: transparent;
-  border: 1px solid transparent;
-  max-width: 88px;
+  border: 0;
+  border-left: var(--rule-3) solid var(--line-soft);
+  border-radius: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.thumb:first-child {
+  border-left: 0;
 }
 
 .thumb canvas {
-  border-radius: 4px;
   display: block;
+  border-radius: 0;
+  border: var(--rule-3) solid var(--line-soft);
 }
 
 .thumb span {
-  font-size: 10px;
-  color: var(--muted);
-  max-width: 78px;
+  max-width: 68px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.thumb:hover {
+  background: var(--hover-bg);
 }
 
 .thumb.active {
+  background: var(--accent-soft);
+}
+
+.thumb.active span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.thumb.active canvas {
   border-color: var(--accent);
-  border-radius: 6px;
+  border-width: var(--rule-2);
 }
 
 .thumb.clear {
-  align-self: center;
+  align-self: stretch;
+  justify-content: center;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 5px 14px;
 }
 
-/* ---- status ---- */
+.thumb.clear:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* ==========================================================================
+   Status bar
+   ========================================================================== */
+
 .statusbar {
-  padding: 5px 14px;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
   font-size: 11px;
-  min-height: 24px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border-top: var(--rule-1) solid var(--line);
+  min-height: 30px;
 }
 
 .update-note {
-  float: right;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
   color: var(--text);
 }
 
 .update-note button {
-  padding: 2px 8px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 10px;
   background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  border-left: 0;
+  color: var(--accent-fg);
 }
 
-/* ---- collapsed preset rows ---- */
-.preset-row-collapsed {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  margin-bottom: 5px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 7px;
+.update-note button:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
-.preset-row-collapsed:hover {
-  border-color: var(--hover-border);
-  background: var(--hover-bg);
+/* ==========================================================================
+   Responsive — the panel collapses above the stage on narrow screens
+   ========================================================================== */
+
+@media (max-width: 820px) {
+  /*
+   * The panel takes the height its content needs and the page scrolls as one
+   * document. Capping it at a fraction of the viewport is what forced the
+   * expanded preset into a cramped inner scroll box.
+   */
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .app {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .panel-scroll {
+    overflow-y: visible;
+  }
+
+  .stage {
+    min-height: 60vh;
+  }
+
+  .panel {
+    border-right: 0;
+    border-bottom: var(--rule-1) solid var(--line);
+  }
+
+  /*
+   * The topbar wraps to a second row rather than compressing its cells or
+   * pushing the theme toggle off-screen. Both the bar and the actions row
+   * must wrap: wrapping only the bar leaves the actions as one long
+   * unbreakable cell that overflows the viewport.
+   */
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .topbar h1 {
+    flex: 1 0 100%;
+    border-right: 0;
+    border-bottom: var(--rule-3) solid var(--line-soft);
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  /* Wrapped rows would otherwise show a seam against the shell edge. */
+  .topbar-actions > *:first-child {
+    border-left: 0;
+  }
+
+  /* Tighter cells here keep the row count down as the bar wraps. */
+  .topbar button,
+  .topbar .file-btn,
+  .topbar .check {
+    padding: 11px 12px;
+  }
+
+  /*
+   * The toolbar wraps rather than scrolling: a horizontal scrollbar hides the
+   * measured values behind a gesture, and they are the one thing on this bar
+   * that must stay readable while cropping.
+   */
+  .stage-tools {
+    flex-wrap: wrap;
+  }
+
+  .spacer {
+    display: none;
+  }
+
+  /* Dims take a full row of their own, below the buttons. */
+  .dims {
+    width: 100%;
+    border-left: 0;
+    border-top: var(--rule-3) solid var(--line-soft);
+  }
+
+  /* Cells share the row evenly and ellipsize rather than forcing overflow. */
+  .dim {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 10px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
-.preset-row-name {
-  font-weight: 600;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.preset-row-meta {
-  font-size: 11px;
-  color: var(--muted);
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

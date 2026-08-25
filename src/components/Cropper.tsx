@@ -8,7 +8,8 @@ interface Props {
   bitmap: ImageBitmap;
   naturalWidth: number;
   naturalHeight: number;
-  ratio: number;
+  /** Locked aspect ratio, or null to resize freely (contain presets). */
+  ratio: number | null;
   crop: CropRect;
   onChange(crop: CropRect): void;
 }
@@ -101,11 +102,33 @@ export function Cropper({ bitmap, naturalWidth, naturalHeight, ratio, crop, onCh
     }
     ctx.stroke();
 
-    ctx.strokeStyle = '#f8fafc';
+    // The frame reads the accent from the stylesheet so it tracks the theme
+    // rather than pinning a colour the tokens can no longer reach.
+    const accent =
+      getComputedStyle(canvas).getPropertyValue('--accent').trim() || '#d92b2b';
+
+    ctx.strokeStyle = accent;
     ctx.lineWidth = 2;
     ctx.strokeRect(tl.x, tl.y, cw, ch);
 
-    ctx.fillStyle = '#f8fafc';
+    // Centre crosshair: short ticks in from each edge, leaving the middle
+    // clear so the subject stays visible while the crop is aligned.
+    const tick = Math.min(9, cw / 6, ch / 6);
+    const midX = tl.x + cw / 2;
+    const midY = tl.y + ch / 2;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(midX, tl.y);
+    ctx.lineTo(midX, tl.y + tick);
+    ctx.moveTo(midX, tl.y + ch);
+    ctx.lineTo(midX, tl.y + ch - tick);
+    ctx.moveTo(tl.x, midY);
+    ctx.lineTo(tl.x + tick, midY);
+    ctx.moveTo(tl.x + cw, midY);
+    ctx.lineTo(tl.x + cw - tick, midY);
+    ctx.stroke();
+
+    ctx.fillStyle = accent;
     for (const [hx, hy] of [
       [tl.x, tl.y],
       [tl.x + cw, tl.y],
@@ -170,7 +193,7 @@ export function Cropper({ bitmap, naturalWidth, naturalHeight, ratio, crop, onCh
       return;
     }
 
-    // Resize from the anchored opposite corner, ratio locked.
+    // Resize from the anchored opposite corner.
     const s = drag.startCrop;
     const anchorX = drag.handle === 'nw' || drag.handle === 'sw' ? s.x + s.width : s.x;
     const anchorY = drag.handle === 'nw' || drag.handle === 'ne' ? s.y + s.height : s.y;
@@ -178,12 +201,18 @@ export function Cropper({ bitmap, naturalWidth, naturalHeight, ratio, crop, onCh
     const signY = drag.handle === 'sw' || drag.handle === 'se' ? 1 : -1;
 
     let width = Math.max(24, s.width + signX * dx);
-    let height = width / ratio;
-    // Respect whichever axis the pointer pushed further.
-    const byHeight = Math.max(24, s.height + signY * dy);
-    if (byHeight * ratio > width) {
-      height = byHeight;
-      width = height * ratio;
+    let height: number;
+    if (ratio === null) {
+      // Free resize: each axis follows its own pointer delta.
+      height = Math.max(24, s.height + signY * dy);
+    } else {
+      height = width / ratio;
+      // Respect whichever axis the pointer pushed further.
+      const byHeight = Math.max(24, s.height + signY * dy);
+      if (byHeight * ratio > width) {
+        height = byHeight;
+        width = height * ratio;
+      }
     }
 
     const x = signX === 1 ? anchorX : anchorX - width;

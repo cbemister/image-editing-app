@@ -1,12 +1,12 @@
 {
-  "name": "Staff Photo Cropper",
-  "short_name": "Cropper",
-  "description": "Crop and export staff photos at preset aspect ratios, entirely offline.",
+  "name": "Framewise",
+  "short_name": "Framewise",
+  "description": "Crop once and export every size you need — staff photos, social graphics, and logos. Entirely offline.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0f1115",
-  "theme_color": "#0f1115",
+  "background_color": "#0b0d11",
+  "theme_color": "#0b0d11",
   "orientation": "any",
   "icons": [
     {
