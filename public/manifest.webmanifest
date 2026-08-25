@@ -1,7 +1,7 @@
 {
   "name": "Framewise",
   "short_name": "Framewise",
-  "description": "Crop once and export every size you need — staff photos, social graphics, and logos. Entirely offline.",
+  "description": "Crop and resize images, fast — staff photos, social graphics, and logos. Entirely offline.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

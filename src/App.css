@@ -168,6 +168,7 @@ input[type='number'],
   gap: 0;
   padding: 0;
   background: var(--panel);
+  border-top: var(--rule-1) solid var(--line);
   border-bottom: var(--rule-1) solid var(--line);
 }
 

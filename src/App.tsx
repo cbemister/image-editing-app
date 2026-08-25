@@ -456,8 +456,8 @@ export default function App() {
                 <UploadIcon className="icon" />
                 <p>{dragActive ? 'Drop to add images' : 'Drop images here, or use “Add images”.'}</p>
                 <p className="hint">
-                  Staff photos, social graphics, and logos — cropped once, exported at every
-                  size. Everything runs locally; no image ever leaves this machine.
+                  Staff photos, social graphics, and logos — crop and resize, fast. Everything
+                  runs locally; no image ever leaves this machine.
                 </p>
               </div>
             </div>
