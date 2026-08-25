@@ -27,7 +27,15 @@ self.addEventListener('install', (event) => {
       // addAll is atomic — one failure aborts the install, which is what we
       // want: a half-cached app that breaks offline is worse than no install.
       await cache.addAll(PRECACHE_URLS);
-      await self.skipWaiting();
+
+      // Deliberately NOT calling skipWaiting() here. A new worker must park in
+      // "waiting" so the page can show its update prompt; activating eagerly
+      // would swap code under a session mid-edit and skip the prompt entirely.
+      // The Reload button sends SKIP_WAITING when the user is ready.
+      //
+      // The exception is a first install, where there is no old worker to
+      // replace and nothing to interrupt.
+      if (!self.registration.active) await self.skipWaiting();
     })()
   );
 });

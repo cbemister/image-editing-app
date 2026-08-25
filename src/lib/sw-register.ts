@@ -11,10 +11,19 @@ export function registerServiceWorker(onUpdateReady?: UpdateHandler): void {
   if (import.meta.env.DEV) return;
   if (!('serviceWorker' in navigator)) return;
 
-  window.addEventListener('load', () => {
+  // React mounts after "load" has already fired, so waiting for that event
+  // would attach a listener that never runs. Register straight away unless the
+  // page genuinely is still loading.
+  const start = () => {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
       .then((registration) => {
+        // A worker that finished installing before this listener attached is
+        // already waiting — surface it rather than missing the notification.
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          onUpdateReady?.();
+        }
+
         registration.addEventListener('updatefound', () => {
           const installing = registration.installing;
           if (!installing) return;
@@ -26,11 +35,18 @@ export function registerServiceWorker(onUpdateReady?: UpdateHandler): void {
             }
           });
         });
+
+        // Browsers do not reliably re-fetch sw.js on every load, so ask
+        // explicitly. Without this an installed app can run stale for days.
+        registration.update().catch(() => {});
       })
       .catch(() => {
         // Offline install is a bonus, not a requirement — the app still runs.
       });
-  });
+  };
+
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start, { once: true });
 }
 
 /** Activate a waiting worker and reload onto the new version. */
