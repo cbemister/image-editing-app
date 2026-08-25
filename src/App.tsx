@@ -24,7 +24,6 @@ export default function App() {
   const [images, setImages] = useState<LoadedImage[]>([]);
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [includeDimensions, setIncludeDimensions] = useState(true);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -41,23 +40,15 @@ export default function App() {
   useEffect(() => registerServiceWorker(() => setUpdateReady(true)), []);
 
   /**
-   * Keep active/selected preset ids valid as presets are added or deleted.
-   *
-   * Both setters must be no-ops when nothing actually changed: returning a new
-   * Set unconditionally re-renders, refires this effect, and would stomp the
-   * user's preset selection on every click.
+   * Keep the active preset id valid as presets are added or deleted. The setter
+   * must return the previous value untouched when nothing changed, or the
+   * re-render refires this effect and stomps the user's selection.
    */
   useEffect(() => {
     if (presets.length === 0) return;
     setActivePresetId((prev) =>
       prev && presets.some((p) => p.id === prev) ? prev : presets[0].id
     );
-    setSelectedPresetIds((prev) => {
-      const valid = new Set([...prev].filter((id) => presets.some((p) => p.id === id)));
-      if (valid.size === 0) presets.forEach((p) => valid.add(p.id));
-      const unchanged = valid.size === prev.size && [...valid].every((id) => prev.has(id));
-      return unchanged ? prev : valid;
-    });
   }, [presets]);
 
   const activeImage = useMemo(
@@ -152,8 +143,8 @@ export default function App() {
   };
 
   const autoFrameAll = async () => {
-    const targets = presets.filter((p) => selectedPresetIds.has(p.id));
-    if (images.length === 0 || targets.length === 0) return;
+    if (images.length === 0 || !activePreset) return;
+    const targets = [activePreset];
     setBusy(true);
     let hits = 0;
     let misses = 0;
@@ -224,11 +215,11 @@ export default function App() {
   };
 
   const runExport = async (scope: 'active' | 'all') => {
-    const targets = presets.filter((p) => selectedPresetIds.has(p.id));
-    if (targets.length === 0) {
-      setStatus('No presets selected for export.');
+    if (!activePreset) {
+      setStatus('No preset selected.');
       return;
     }
+    const targets = [activePreset];
     const subjects = scope === 'active' ? (activeImage ? [activeImage] : []) : images;
     if (subjects.length === 0) {
       setStatus('No images to export.');
@@ -259,12 +250,10 @@ export default function App() {
     }
   };
 
-  const totalOutputs = useMemo(() => {
-    const perImage = presets
-      .filter((p) => selectedPresetIds.has(p.id))
-      .reduce((sum, p) => sum + p.sizes.filter((s) => s.enabled).length, 0);
-    return perImage * images.length;
-  }, [presets, selectedPresetIds, images.length]);
+  const totalOutputs = useMemo(
+    () => (activePreset?.sizes.length ?? 0) * images.length,
+    [activePreset, images.length]
+  );
 
   return (
     <div
@@ -298,10 +287,19 @@ export default function App() {
             />
             size in filename
           </label>
-          <button onClick={() => runExport('active')} disabled={busy || !activeImage}>
+          <button
+            onClick={() => runExport('active')}
+            disabled={busy || !activeImage}
+            title={activePreset ? `Export this image at every ${activePreset.name} size` : undefined}
+          >
             Export current
           </button>
-          <button className="primary" onClick={() => runExport('all')} disabled={busy || !images.length}>
+          <button
+            className="primary"
+            onClick={() => runExport('all')}
+            disabled={busy || !images.length}
+            title={activePreset ? `Export all images at every ${activePreset.name} size` : undefined}
+          >
             Export all ({totalOutputs})
           </button>
         </div>
@@ -311,7 +309,6 @@ export default function App() {
         <PresetPanel
           presets={presets}
           activeId={activePresetId}
-          selectedIds={selectedPresetIds}
           onSetPresets={setPresets}
           onSetActive={(id) => {
             setActivePresetId(id);
@@ -333,14 +330,6 @@ export default function App() {
               }
             }
           }}
-          onToggleSelected={(id) =>
-            setSelectedPresetIds((prev) => {
-              const next = new Set(prev);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-              return next;
-            })
-          }
         />
 
         <main className="stage">

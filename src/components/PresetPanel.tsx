@@ -5,20 +5,16 @@ import { newPreset, newSize } from '../lib/presets';
 interface Props {
   presets: Preset[];
   activeId: string | null;
-  selectedIds: Set<string>;
   onSetPresets(presets: Preset[]): void;
   onSetActive(id: string): void;
-  onToggleSelected(id: string): void;
 }
 
-export function PresetPanel({
-  presets,
-  activeId,
-  selectedIds,
-  onSetPresets,
-  onSetActive,
-  onToggleSelected,
-}: Props) {
+/**
+ * One batch uses one preset, so the active preset IS the selection — there are
+ * no checkboxes. Only the active preset expands to reveal its settings, which
+ * keeps the whole list visible at a glance.
+ */
+export function PresetPanel({ presets, activeId, onSetPresets, onSetActive }: Props) {
   const update = (id: string, patch: Partial<Preset>) =>
     onSetPresets(presets.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
@@ -45,7 +41,9 @@ export function PresetPanel({
       <div className="panel-head">
         <h2>Presets</h2>
         <div className="panel-actions">
-          <button onClick={() => onSetPresets([...presets, newPreset()])}>+ Preset</button>
+          <button onClick={() => onSetPresets([...presets, newPreset()])} title="Add a preset">
+            +
+          </button>
           <button onClick={exportJson} title="Export presets as JSON">
             Save
           </button>
@@ -63,35 +61,44 @@ export function PresetPanel({
       {presets.map((preset) => {
         const ratio = presetRatio(preset);
         const bad = mismatchedSizes(preset);
-        const enabledCount = preset.sizes.filter((s) => s.enabled).length;
+        const isActive = activeId === preset.id;
+
+        // Collapsed: a one-line summary of what this preset would export.
+        if (!isActive) {
+          return (
+            <button
+              key={preset.id}
+              className="preset-row-collapsed"
+              onClick={() => onSetActive(preset.id)}
+            >
+              <span className="preset-row-name">{preset.name}</span>
+              <span className="preset-row-meta">
+                {preset.sizes.length} size{preset.sizes.length === 1 ? '' : 's'}
+                {bad.length > 0 && <span className="warn" title="Some sizes do not match this preset's ratio."> !</span>}
+              </span>
+              <span className="ratio-badge">{ratio.toFixed(3)}</span>
+            </button>
+          );
+        }
+
         return (
-          <div
-            key={preset.id}
-            className={`preset ${activeId === preset.id ? 'active' : ''}`}
-            onClick={() => onSetActive(preset.id)}
-          >
+          <div key={preset.id} className="preset active">
             <div className="preset-row">
-              <input
-                type="checkbox"
-                checked={selectedIds.has(preset.id)}
-                onChange={() => onToggleSelected(preset.id)}
-                onClick={(e) => e.stopPropagation()}
-                title="Include in export"
-              />
               <input
                 className="preset-name"
                 value={preset.name}
                 onChange={(e) => update(preset.id, { name: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
               />
               <span className="ratio-badge">{ratio.toFixed(3)}</span>
               <button
                 className="danger"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSetPresets(presets.filter((p) => p.id !== preset.id));
+                onClick={() => {
+                  const next = presets.filter((p) => p.id !== preset.id);
+                  onSetPresets(next);
+                  if (next.length) onSetActive(next[0].id);
                 }}
                 title="Delete preset"
+                disabled={presets.length === 1}
               >
                 ×
               </button>
@@ -103,7 +110,6 @@ export function PresetPanel({
                 <input
                   value={preset.suffix}
                   onChange={(e) => update(preset.id, { suffix: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
                 />
               </label>
               <label>
@@ -111,7 +117,6 @@ export function PresetPanel({
                 <select
                   value={preset.format}
                   onChange={(e) => update(preset.id, { format: e.target.value as Preset['format'] })}
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <option value="image/jpeg">JPG</option>
                   <option value="image/png">PNG</option>
@@ -127,7 +132,6 @@ export function PresetPanel({
                     max={100}
                     value={Math.round(preset.quality * 100)}
                     onChange={(e) => update(preset.id, { quality: Number(e.target.value) / 100 })}
-                    onClick={(e) => e.stopPropagation()}
                   />
                 </label>
               )}
@@ -139,18 +143,6 @@ export function PresetPanel({
                 return (
                   <div key={size.id} className={`size ${ok ? '' : 'mismatch'}`}>
                     <input
-                      type="checkbox"
-                      checked={size.enabled}
-                      onChange={(e) =>
-                        update(preset.id, {
-                          sizes: preset.sizes.map((s) =>
-                            s.id === size.id ? { ...s, enabled: e.target.checked } : s
-                          ),
-                        })
-                      }
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <input
                       type="number"
                       value={size.width}
                       onChange={(e) =>
@@ -160,7 +152,6 @@ export function PresetPanel({
                           ),
                         })
                       }
-                      onClick={(e) => e.stopPropagation()}
                     />
                     <span>×</span>
                     <input
@@ -173,7 +164,6 @@ export function PresetPanel({
                           ),
                         })
                       }
-                      onClick={(e) => e.stopPropagation()}
                     />
                     {!ok && (
                       <span
@@ -185,10 +175,11 @@ export function PresetPanel({
                     )}
                     <button
                       className="danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        update(preset.id, { sizes: preset.sizes.filter((s) => s.id !== size.id) });
-                      }}
+                      onClick={() =>
+                        update(preset.id, { sizes: preset.sizes.filter((s) => s.id !== size.id) })
+                      }
+                      title="Remove size"
+                      disabled={preset.sizes.length === 1}
                     >
                       ×
                     </button>
@@ -197,8 +188,7 @@ export function PresetPanel({
               })}
               <button
                 className="add-size"
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   const first = preset.sizes[0];
                   const w = first ? first.width : 400;
                   update(preset.id, {
@@ -208,9 +198,6 @@ export function PresetPanel({
               >
                 + size
               </button>
-            </div>
-            <div className="preset-foot">
-              {enabledCount} size{enabledCount === 1 ? '' : 's'} enabled
             </div>
           </div>
         );

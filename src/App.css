@@ -407,3 +407,36 @@ button.danger:hover {
   border-color: var(--accent);
   color: #fff;
 }
+
+/* ---- collapsed preset rows ---- */
+.preset-row-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  margin-bottom: 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.preset-row-collapsed:hover {
+  border-color: #3d4557;
+  background: #252a35;
+}
+
+.preset-row-name {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-row-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
