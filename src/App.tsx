@@ -19,6 +19,14 @@ import './App.css';
 
 let imageSeq = 0;
 
+type Theme = 'dark' | 'light';
+
+function getInitialTheme(): Theme {
+  const stored = localStorage.getItem('theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
 export default function App() {
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets());
   const [images, setImages] = useState<LoadedImage[]>([]);
@@ -30,6 +38,12 @@ export default function App() {
   const outDirRef = useRef<DirectoryHandleLike | null>(null);
   const [outDirName, setOutDirName] = useState<string | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   useEffect(() => savePresets(presets), [presets]);
 
@@ -267,6 +281,13 @@ export default function App() {
       <header className="topbar">
         <h1>Staff Photo Cropper</h1>
         <div className="topbar-actions">
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </button>
           <label className="file-btn primary">
             Add images
             <input
@@ -411,6 +432,23 @@ export default function App() {
         )}
       </div>
     </div>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.7 14.3A8.5 8.5 0 0 1 9.7 3.3a.7.7 0 0 0-.9-.9 10 10 0 1 0 12.8 12.8.7.7 0 0 0-.9-.9z" />
+    </svg>
   );
 }
 

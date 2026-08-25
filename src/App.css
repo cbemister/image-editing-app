@@ -8,7 +8,28 @@
   --accent: #4f8cff;
   --danger: #ff5f56;
   --warn: #f5a623;
+  --checker-a: #15181e;
+  --checker-b: #191d24;
+  --hover-border: #3d4557;
+  --hover-bg: #252a35;
   color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --panel-2: #eef0f3;
+  --line: #d8dce3;
+  --text: #1a1d24;
+  --muted: #5b6270;
+  --accent: #3568d4;
+  --danger: #d33a32;
+  --warn: #b5730a;
+  --checker-a: #e4e6ea;
+  --checker-b: #eceef1;
+  --hover-border: #b9bfca;
+  --hover-bg: #e2e5eb;
+  color-scheme: light;
 }
 
 * {
@@ -73,8 +94,8 @@ button,
 
 button:hover:not(:disabled),
 .file-btn:hover {
-  border-color: #3d4557;
-  background: #252a35;
+  border-color: var(--hover-border);
+  background: var(--hover-bg);
 }
 
 button:disabled {
@@ -113,6 +134,14 @@ button.danger:hover {
   align-items: center;
   gap: 5px;
   color: var(--muted);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  padding: 6px 0;
 }
 
 /* ---- layout ---- */
@@ -314,7 +343,8 @@ button.danger:hover {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  background: repeating-conic-gradient(#15181e 0% 25%, #191d24 0% 50%) 50% / 22px 22px;
+  background: repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%) 50% /
+    22px 22px;
 }
 
 .cropper-wrap canvas {
@@ -423,8 +453,8 @@ button.danger:hover {
 }
 
 .preset-row-collapsed:hover {
-  border-color: #3d4557;
-  background: #252a35;
+  border-color: var(--hover-border);
+  background: var(--hover-bg);
 }
 
 .preset-row-name {
