@@ -35,9 +35,20 @@ the app or to pick up a new build.
 
 ### Updating an installed app
 
-Run `npm run build && npm run serve`, then open the installed app once while the
-server is up. It notices the new version and shows a **Reload** button in the
-status bar. After that you can stop the server again.
+```
+npm run build
+npm run serve
+```
+
+Open the installed app while the server is running. It checks for a new version
+on startup and shows **"A new version is ready. Reload"** in the status bar —
+click Reload and it switches over. Stop the server afterwards.
+
+The update waits for that click rather than applying itself, so a new build
+never swaps code out from under you mid-batch.
+
+If the prompt does not appear, the app is already current. To force a check,
+close and reopen it while the server is up.
 
 ## How it works
 
@@ -92,7 +103,39 @@ Filenames are `basename-suffix-WIDTHxHEIGHT.jpg`, e.g.
 `jane-smith-square-300x300.jpg`. Untick **size in filename** to drop the
 dimensions.
 
-## Sharing / deploying
+## Sharing with co-workers
+
+Two ways, depending on whether they need to change the code.
+
+**They just want to use it** — host it once and send a link:
+
+```
+npm run build
+```
+
+Drop `dist/` on any static host (Netlify, Vercel, an internal web server). They
+open the URL and install it from the browser menu, same as you did. **They need
+nothing installed** — no Node, no repo, no admin rights. Photos stay on their
+machine either way; only the app itself is hosted.
+
+To update everyone, rebuild and redeploy. Each person gets the update prompt the
+next time they open the app.
+
+**They want the source** — point them at the repo:
+
+```
+git clone https://github.com/cbemister/image-editing-app
+cd image-editing-app
+npm install     # fetches the MediaPipe runtime and model automatically
+npm run build
+npm run serve   # then install from http://localhost:4173
+```
+
+To send changes back, use a branch and a pull request rather than pushing to
+`main` — history here has been rewritten once already, and force-pushes over
+someone else's work are hard to recover.
+
+## Deploying
 
 The build is a folder of static files. **Anyone using the app needs only a
 browser** — Node is required just to build it, and to run the batch CLI.
