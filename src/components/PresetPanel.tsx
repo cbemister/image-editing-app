@@ -120,7 +120,13 @@ export function PresetPanel({
       suffix: label.replace(':', 'x'),
       sizes: [newSize(w, h)],
     };
-    onSetPresets([...presets, next]);
+    /*
+     * Drop any crop left empty by removing its last size. One is kept while it
+     * is the only crop in the section -- something has to hold the Add-a-size
+     * box -- and swept up here, once this new crop can take its place.
+     */
+    const kept = presets.filter((p) => p.category !== 'photo' || p.sizes.length > 0);
+    onSetPresets([...kept, next]);
     onSetActive(next.id);
   };
 
@@ -160,6 +166,61 @@ export function PresetPanel({
 
   const update = (id: string, patch: Partial<Preset>) =>
     onSetPresets(presets.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
+  /**
+   * Remove one size, and the crop it belonged to when it was the last one.
+   *
+   * A staff crop exists to hold sizes at a ratio, so an empty one is not a
+   * thing to keep -- it was previously impossible to remove either, since the
+   * last size was locked and the staff section has no delete button. That
+   * stranded any group left holding a single size, including the duplicate
+   * ratio groups an earlier merge bug produced.
+   *
+   * The very last crop in the section is kept: with none at all there is
+   * nothing to frame or add a size to.
+   */
+  /**
+   * Fold another crop at the same ratio into this one.
+   *
+   * Offered rather than done automatically: doing it on load is what destroyed
+   * user-named presets before. Two crops at one ratio are legitimate -- the
+   * same shape exported under two suffixes -- so this only happens when asked.
+   *
+   * The target keeps its identity, so its framing is preserved; the other's
+   * sizes come across, minus any duplicates.
+   */
+  const mergeInto = (target: Preset, source: Preset) => {
+    const additions = source.sizes.filter(
+      (s) => !target.sizes.some((t) => t.width === s.width && t.height === s.height)
+    );
+    const merged = presets
+      .map((p) =>
+        p.id === target.id ? { ...p, sizes: [...p.sizes, ...additions] } : p
+      )
+      .filter((p) => p.id !== source.id);
+    onSetPresets(merged);
+    if (activeId === source.id) onSetActive(target.id);
+  };
+
+  const removeSize = (preset: Preset, sizeId: string) => {
+    const remaining = preset.sizes.filter((s) => s.id !== sizeId);
+    if (remaining.length > 0) {
+      update(preset.id, { sizes: remaining });
+      return;
+    }
+    const siblings = presets.filter(
+      (p) => p.category === preset.category && p.id !== preset.id
+    );
+    if (siblings.length === 0) {
+      // The only crop left: emptied rather than removed, so the section still
+      // has something to add a size to. addStaffSize sweeps it up once another
+      // crop exists.
+      update(preset.id, { sizes: remaining });
+      return;
+    }
+    onSetPresets(presets.filter((p) => p.id !== preset.id));
+    if (activeId === preset.id) onSetActive(siblings[0].id);
+  };
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(presets, null, 2)], { type: 'application/json' });
@@ -388,10 +449,13 @@ export function PresetPanel({
           */}
         <button
           className="size-remove"
-          onClick={() => update(preset.id, { sizes: preset.sizes.filter((s) => s.id !== size.id) })}
-          title={`Remove ${size.width}×${size.height}`}
+          onClick={() => removeSize(preset, size.id)}
+          title={
+            preset.sizes.length === 1
+              ? `Remove ${size.width}×${size.height} and this crop`
+              : `Remove ${size.width}×${size.height}`
+          }
           aria-label={`Remove ${size.width}×${size.height}`}
-          disabled={preset.sizes.length === 1}
         >
           ×
         </button>
@@ -588,11 +652,43 @@ export function PresetPanel({
                 </span>
               </button>
               {isActive && (
-                <div className="sizes">
-                  {preset.sizes.map((size, sizeIndex) =>
-                    renderSizeCell(preset, size, sizeIndex, ratio)
-                  )}
-                </div>
+                <>
+                  <div className="sizes">
+                    {preset.sizes.map((size, sizeIndex) =>
+                      renderSizeCell(preset, size, sizeIndex, ratio)
+                    )}
+                  </div>
+                  {/*
+                    * Two crops at one ratio are framed twice and exported
+                    * twice from the same shape. Usually that is a leftover
+                    * rather than an intent, but it can be deliberate -- the
+                    * same crop under two suffixes -- so merging is offered
+                    * here instead of being done silently on load.
+                    */}
+                  {(() => {
+                    const twins = group.filter(
+                      (p) => p.id !== preset.id && ratiosMatch(presetRatio(p), ratio)
+                    );
+                    if (twins.length === 0) return null;
+                    return (
+                      <p className="merge-hint">
+                        {`Also at ${ratioLabel(preset)}: `}
+                        {twins.map((t, i) => (
+                          <span key={t.id}>
+                            {i > 0 && ', '}
+                            <button
+                              className="merge-link"
+                              onClick={() => mergeInto(preset, t)}
+                              title={`Move ${t.name}'s sizes into this crop and remove it`}
+                            >
+                              {`merge ${t.name}`}
+                            </button>
+                          </span>
+                        ))}
+                      </p>
+                    );
+                  })()}
+                </>
               )}
             </div>
           );

@@ -1073,6 +1073,28 @@ button.danger:hover:not(:disabled) {
   margin-top: 8px;
 }
 
+/* An offer, not a warning: a duplicate ratio is usually a leftover, not a fault. */
+.merge-hint {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.merge-link {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.merge-link:hover {
+  color: var(--accent-hover);
+}
+
 /* ---- recent dimensions ---- */
 
 /*
