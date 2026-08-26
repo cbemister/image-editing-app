@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Populates public/mediapipe/ with the face-detection runtime and model.
+ * Populates public/mediapipe/ with the vision runtime and its models.
  *
  * These are build inputs, not source, so they are gitignored and regenerated
  * here — committing ~23MB of binaries would bloat every clone permanently.
  *
  *   - WASM runtime: copied out of the installed @mediapipe/tasks-vision package,
  *     so it always matches the version in package.json.
- *   - Model: downloaded once from Google's model store and cached on disk.
+ *   - Models: downloaded once from Google's model store and cached on disk.
+ *     BlazeFace drives Auto-frame; the selfie segmenter drives background
+ *     removal. Both share the one WASM runtime copied above.
  *
  * Runs automatically after `npm install` (see the "prepare" script).
  */
@@ -29,11 +31,19 @@ const WASM_FILES = [
   'vision_wasm_nosimd_internal.wasm',
 ];
 
-const MODEL_NAME = 'blaze_face_short_range.tflite';
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
-/** Reject a truncated or error-page download. */
-const MODEL_MIN_BYTES = 100_000;
+const MODELS = [
+  {
+    name: 'blaze_face_short_range.tflite',
+    url: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
+    /** Reject a truncated or error-page download. */
+    minBytes: 100_000,
+  },
+  {
+    name: 'selfie_segmenter.tflite',
+    url: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
+    minBytes: 200_000,
+  },
+];
 
 async function main() {
   if (!existsSync(WASM_SRC)) {
@@ -60,28 +70,30 @@ async function main() {
     copied++;
   }
 
-  const modelPath = path.join(OUT, MODEL_NAME);
-  let downloaded = false;
-  if (!existsSync(modelPath) || (await stat(modelPath)).size < MODEL_MIN_BYTES) {
-    process.stdout.write('fetch-assets: downloading face model… ');
-    const res = await fetch(MODEL_URL);
+  let downloaded = 0;
+  for (const model of MODELS) {
+    const modelPath = path.join(OUT, model.name);
+    if (existsSync(modelPath) && (await stat(modelPath)).size >= model.minBytes) continue;
+
+    process.stdout.write(`fetch-assets: downloading ${model.name}… `);
+    const res = await fetch(model.url);
     if (!res.ok) {
-      console.error(`\nfetch-assets: model download failed (HTTP ${res.status}).`);
-      console.error(`  Fetch it manually into public/mediapipe/:\n  ${MODEL_URL}`);
+      console.error(`\nfetch-assets: download failed (HTTP ${res.status}).`);
+      console.error(`  Fetch it manually into public/mediapipe/:\n  ${model.url}`);
       process.exit(1);
     }
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < MODEL_MIN_BYTES) {
-      console.error(`\nfetch-assets: model looks truncated (${buf.length} bytes).`);
+    if (buf.length < model.minBytes) {
+      console.error(`\nfetch-assets: ${model.name} looks truncated (${buf.length} bytes).`);
       process.exit(1);
     }
     await writeFile(modelPath, buf);
-    downloaded = true;
+    downloaded++;
     console.log(`ok (${(buf.length / 1024).toFixed(0)} KB)`);
   }
 
   if (copied || downloaded) {
-    console.log(`fetch-assets: ready (${copied} runtime file(s) copied${downloaded ? ', model downloaded' : ''})`);
+    console.log(`fetch-assets: ready (${copied} runtime file(s) copied${downloaded ? `, ${downloaded} model(s) downloaded` : ''})`);
   } else {
     console.log('fetch-assets: assets already present');
   }

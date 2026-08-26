@@ -27,6 +27,7 @@ const PRECACHE_MATCHERS = [
   (p) => p.startsWith('/assets/'),
   (p) => p.endsWith('.svg'),
   (p) => p === '/mediapipe/blaze_face_short_range.tflite',
+  (p) => p === '/mediapipe/selfie_segmenter.tflite',
   (p) => p === '/mediapipe/wasm/vision_wasm_internal.js',
   (p) => p === '/mediapipe/wasm/vision_wasm_internal.wasm',
 ];

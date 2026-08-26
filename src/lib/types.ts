@@ -35,6 +35,24 @@ export interface Preset {
   background?: string;
   /** Inset as a fraction (0..0.45) of the frame's shorter edge, 'contain' only. */
   padding?: number;
+  /**
+   * Cut the subject out of the background when exporting through this preset.
+   *
+   * A property of the output rather than of the image: some dealerships shoot
+   * against a branded backdrop and want it gone from every photo, most do not
+   * want it touched at all. Declaring it on the preset means it is set once
+   * and then simply happens, instead of being a step to remember per image.
+   *
+   * Only meaningful for photos of people -- the model is a selfie segmenter.
+   */
+  removeBackground?: boolean;
+  /**
+   * Pattern for exported filenames, e.g. "{name}_{w}x{h}".
+   *
+   * Absent means the built-in default. The extension is appended from the
+   * format, so a template never has to end in one.
+   */
+  filenameTemplate?: string;
 }
 
 export type FitMode = 'cover' | 'contain';
@@ -61,6 +79,8 @@ export function withPresetDefaults(preset: Preset): Preset {
     fit: preset.fit ?? 'cover',
     background: preset.background ?? '#ffffff',
     padding: preset.padding ?? 0,
+    removeBackground: preset.removeBackground ?? false,
+    filenameTemplate: preset.filenameTemplate ?? DEFAULT_TEMPLATE,
   };
 }
 
@@ -144,6 +164,9 @@ export function mismatchedSizes(preset: Preset): OutputSize[] {
   return preset.sizes.filter((s) => !ratiosMatch(ratioOf(s), target));
 }
 
+import { DEFAULT_TEMPLATE } from './filename';
+import type { History } from './history';
+
 /** Crop rectangle in natural (source) image pixel coordinates. */
 export interface CropRect {
   x: number;
@@ -157,9 +180,37 @@ export interface LoadedImage {
   file: File;
   /** Filename without extension, used as the export basename. */
   baseName: string;
+  /** The image as loaded. Never replaced, so a cutout stays reversible. */
   bitmap: ImageBitmap;
   naturalWidth: number;
   naturalHeight: number;
   /** Per-preset crop rects, keyed by preset id. */
   crops: Record<string, CropRect>;
+  /**
+   * Background-removed copy, once it has been computed. Same dimensions as
+   * `bitmap`, so every crop rect stays valid across the toggle.
+   */
+  cutout?: ImageBitmap;
+  /** Whether the cutout is the one to display and export. */
+  useCutout?: boolean;
+  /**
+   * Undo/redo stack for this image. Per image rather than global, so undo
+   * never jumps to a different photo mid-batch.
+   */
+  history?: History;
+  /**
+   * Name of the edit that produced the current state, so undo can report what
+   * it undid. The history entries name the states they hold; this names the
+   * one not yet on the stack.
+   */
+  lastEdit?: string;
+}
+
+/**
+ * The bitmap to draw and export for an image: the cutout when the user has
+ * turned it on, otherwise the original. Preview and export must both read
+ * through here, or the exported file stops matching what was on screen.
+ */
+export function activeBitmap(image: LoadedImage): ImageBitmap {
+  return image.useCutout && image.cutout ? image.cutout : image.bitmap;
 }

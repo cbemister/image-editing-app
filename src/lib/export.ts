@@ -1,6 +1,8 @@
 import type { CropRect, LoadedImage, OutputSize, Preset } from './types';
-import { isSizeEnabled } from './types';
+import { activeBitmap, isSizeEnabled } from './types';
 import { cropFor } from './crop';
+import { removeBackground } from './segment';
+import { buildFilename } from './filename';
 
 export interface ExportItem {
   filename: string;
@@ -69,15 +71,24 @@ export async function renderSize(
   octx.imageSmoothingEnabled = true;
   octx.imageSmoothingQuality = 'high';
 
-  // Paint the backdrop. JPEG has no alpha, so a transparent background would
-  // encode as black -- fall back to white there.
+  /*
+   * Paint the backdrop.
+   *
+   * A 'contain' fit uses the preset's configured background. A 'cover' fit
+   * normally has none visible, since the crop covers the frame -- but a
+   * background-removed source is transparent inside the crop too, so filling
+   * white unconditionally would paint the removed background straight back
+   * in. Leave it clear when the format can carry alpha.
+   *
+   * JPEG has no alpha channel and encodes transparency as black, so it always
+   * gets an opaque backdrop regardless of intent.
+   */
+  const requested =
+    fit === 'contain' ? (preset.background ?? '#ffffff') : 'transparent';
   const backdrop =
-    fit === 'contain' ? (preset.background ?? '#ffffff') : '#ffffff';
+    requested === 'transparent' && format === 'image/jpeg' ? '#ffffff' : requested;
   if (backdrop !== 'transparent') {
     octx.fillStyle = backdrop;
-    octx.fillRect(0, 0, size.width, size.height);
-  } else if (format === 'image/jpeg') {
-    octx.fillStyle = '#ffffff';
     octx.fillRect(0, 0, size.width, size.height);
   }
 
@@ -136,6 +147,14 @@ export function filenameFor(
   includeDimensions: boolean
 ): string {
   const ext = EXTENSION[preset.format];
+  /*
+   * A preset with its own template owns the whole name, including whether
+   * dimensions appear -- the global "size in filename" switch would otherwise
+   * silently override a template that deliberately places {w} and {h}.
+   */
+  if (preset.filenameTemplate && preset.filenameTemplate.trim()) {
+    return buildFilename(image, preset, size, ext);
+  }
   const dims = includeDimensions ? `-${size.width}x${size.height}` : '';
   return `${image.baseName}-${preset.suffix}${dims}.${ext}`;
 }
@@ -147,16 +166,47 @@ export async function exportImage(
   includeDimensions: boolean
 ): Promise<ExportItem[]> {
   const items: ExportItem[] = [];
-  for (const preset of presets) {
-    const crop = cropFor(image, preset);
-    for (const size of preset.sizes) {
-      if (!isSizeEnabled(size)) continue;
-      const blob = await renderSize(image.bitmap, crop, size, preset);
-      items.push({
-        filename: filenameFor(image, preset, size, includeDimensions),
-        blob,
-      });
+
+  /*
+   * Cutout for presets that ask for one, computed at most once per image.
+   *
+   * Segmentation costs a few hundred milliseconds, so it is done lazily (only
+   * if some preset actually wants it) and shared across every preset and size
+   * in the run rather than repeated per output file.
+   */
+  let cutout: ImageBitmap | null | undefined;
+  const cutoutFor = async (): Promise<ImageBitmap | null> => {
+    if (cutout === undefined) {
+      cutout = await removeBackground(image.bitmap);
     }
+    return cutout;
+  };
+
+  try {
+    for (const preset of presets) {
+      const crop = cropFor(image, preset);
+
+      // The preset's own setting wins; the per-image toggle is the fallback,
+      // so a cutout made by hand still exports through a plain preset.
+      let source = activeBitmap(image);
+      if (preset.removeBackground) {
+        source = (await cutoutFor()) ?? source;
+      }
+
+      for (const size of preset.sizes) {
+        if (!isSizeEnabled(size)) continue;
+        const blob = await renderSize(source, crop, size, preset);
+        items.push({
+          filename: filenameFor(image, preset, size, includeDimensions),
+          blob,
+        });
+      }
+    }
+  } finally {
+    // Owned by this call, so it is freed here -- the image's own cutout, if
+    // any, is a different bitmap and is left alone.
+    if (cutout) cutout.close();
   }
+
   return items;
 }

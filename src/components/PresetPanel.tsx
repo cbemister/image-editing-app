@@ -1,3 +1,4 @@
+import { DEFAULT_TEMPLATE, TEMPLATE_TOKENS, previewTemplate } from '../lib/filename';
 import { useState } from 'react';
 import type { OutputSize, Preset, PresetCategory } from '../lib/types';
 import {
@@ -12,6 +13,13 @@ import {
   ratiosMatch,
 } from '../lib/types';
 import { newPreset, newSize, type RecentSize } from '../lib/presets';
+
+/** Extension shown in the filename preview, per format. */
+const EXT_LABEL: Record<Preset['format'], string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 interface Props {
   presets: Preset[];
@@ -187,6 +195,44 @@ export function PresetPanel({
             onChange={(e) => update(preset.id, { suffix: e.target.value })}
           />
         </label>
+        <label className="template-field">
+          filename
+          <input
+            value={preset.filenameTemplate ?? DEFAULT_TEMPLATE}
+            onChange={(e) => update(preset.id, { filenameTemplate: e.target.value })}
+            spellCheck={false}
+            placeholder={DEFAULT_TEMPLATE}
+          />
+          {/*
+            * A worked example rather than a list of rules: the tokens are only
+            * meaningful once you can see what they produce, and a template is
+            * easy to get subtly wrong (a missing brace renders literally).
+            */}
+          <span className="template-preview" title="Example output">
+            {previewTemplate(
+              preset.filenameTemplate ?? DEFAULT_TEMPLATE,
+              preset,
+              EXT_LABEL[preset.format]
+            )}
+          </span>
+          <span className="template-tokens">
+            {TEMPLATE_TOKENS.map((t) => (
+              <button
+                key={t.token}
+                type="button"
+                className="token-chip"
+                title={t.description}
+                onClick={() =>
+                  update(preset.id, {
+                    filenameTemplate: (preset.filenameTemplate ?? DEFAULT_TEMPLATE) + t.token,
+                  })
+                }
+              >
+                {t.token}
+              </button>
+            ))}
+          </span>
+        </label>
         <label>
           format
           <select
@@ -208,6 +254,27 @@ export function PresetPanel({
             <option value="contain">Fit whole image</option>
           </select>
         </label>
+        {/*
+          * Offered only for people-shaped presets: the model is a selfie
+          * segmenter, so on a logo it returns confident nonsense. A branded
+          * backdrop is a per-dealership fact, which makes it a property of the
+          * output rather than a step to remember on each photo.
+          */}
+        {preset.category !== 'logo' && (
+          <label className="check bg-remove">
+            <input
+              type="checkbox"
+              checked={preset.removeBackground === true}
+              onChange={(e) => update(preset.id, { removeBackground: e.target.checked })}
+            />
+            remove background
+            {preset.removeBackground && preset.format === 'image/jpeg' && (
+              // JPEG cannot store alpha, so the cutout would be flattened onto
+              // white -- worth saying before a batch is exported, not after.
+              <span className="field-note">JPG has no transparency — use PNG or WebP</span>
+            )}
+          </label>
+        )}
         {preset.format !== 'image/png' && (
           <label>
             quality {Math.round(preset.quality * 100)}
@@ -433,7 +500,21 @@ export function PresetPanel({
                 }
                 onClick={() => onSetActive(preset.id)}
               >
-                <span className="crop-ratio">{ratioLabel(preset)}</span>
+                {/*
+                  * Auto-generated groups are named for their ratio, so showing
+                  * the ratio names them correctly. A preset the user named is
+                  * shown by that name with the ratio beside it: two custom
+                  * groups at the same ratio were otherwise both just "1:1",
+                  * with nothing to tell them apart.
+                  */}
+                {preset.name === ratioLabel(preset) ? (
+                  <span className="crop-ratio">{ratioLabel(preset)}</span>
+                ) : (
+                  <span className="crop-ratio">
+                    {preset.name}
+                    <span className="crop-ratio-note">{ratioLabel(preset)}</span>
+                  </span>
+                )}
                 <span className="crop-count">
                   {preset.sizes.filter(isSizeEnabled).length}/{preset.sizes.length}
                 </span>

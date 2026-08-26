@@ -1208,19 +1208,292 @@ button.danger:hover:not(:disabled) {
   padding: 0;
   border-bottom: var(--rule-2) solid var(--line);
   background: var(--panel);
+  /*
+   * Scroll the tools rather than let them widen the stage. With the brush and
+   * zoom cells added, the row outgrows a narrow window; without this the whole
+   * page picks up a horizontal scrollbar and the crop canvas is pushed
+   * off-centre.
+   */
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Tools keep their intrinsic width inside the scroller instead of squashing. */
+.stage-tools > button,
+.stage-tools > .zoom-controls,
+.stage-tools > .brush-size {
+  flex: 0 0 auto;
 }
 
 .stage-tools > button:first-child {
   border-left: 0;
 }
 
+/*
+ * Mode tabs. These pick which set of tools is on the bar, so they are ranked
+ * above the tools themselves: an accent underline for the active tab rather
+ * than the filled stamp a toggled tool gets, and a heavier closing rule to
+ * separate the switch from what it switches.
+ */
+.mode-tabs {
+  display: flex;
+  align-items: stretch;
+  border-right: var(--rule-2) solid var(--line-strong);
+}
+
+.mode-tabs button {
+  position: relative;
+  border-left: 0;
+  padding: 0 18px;
+  color: var(--muted);
+}
+
+.mode-tabs button.on {
+  color: var(--text);
+  background: var(--panel-2, transparent);
+}
+
+/* Underline sits inside the cell so the row keeps its height. */
+.mode-tabs button.on::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/*
+ * A toggled-on tool. Background removal is a state the image is left in, not
+ * a one-shot action like Reset, so the button has to keep saying so after the
+ * click -- otherwise the only evidence is the checkerboard behind the photo.
+ */
+.stage-tools > button.on {
+  background: var(--accent);
+  color: var(--accent-ink, #fff);
+}
+
+/*
+ * A tool button: icon beside label. The icon is what separates "a mode you
+ * drag with" from the plain command buttons next to it -- as bare words,
+ * Erase and Restore read as one-shot actions.
+ */
+.stage-tools > button.tool,
+.zoom-controls > button.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/*
+ * Icons inherit the button's text colour, so the armed state flips them along
+ * with the label. Nothing here carries a colour of its own -- the palette
+ * keeps one accent as a stamp.
+ */
+.stage-tools > button.tool svg,
+.zoom-controls > button.tool svg {
+  flex: 0 0 auto;
+  /* Optically centred against uppercase text, which sits above the baseline. */
+  margin-top: -1px;
+  opacity: 0.85;
+}
+
+.stage-tools > button.tool.on svg,
+.zoom-controls > button.tool.on svg {
+  opacity: 1;
+}
+
+/*
+ * The filename template breaks the panel's label-beside-control rhythm: it is
+ * an input plus a worked example plus the token chips, which do not fit on one
+ * line in a narrow column. Given the full width and stacked instead.
+ */
+.template-field {
+  flex: 1 0 100%;
+  display: grid !important;
+  grid-template-columns: 1fr;
+  align-items: stretch !important;
+  gap: 4px;
+}
+
+.template-field input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+/*
+ * The rendered example. Monospace and boxed so it reads as output rather than
+ * as another thing to edit -- it is the only way to see what a template does
+ * without running an export.
+ */
+.template-preview {
+  display: block;
+  padding: 4px 7px;
+  border: var(--rule-1) solid var(--line-faint);
+  background: var(--panel-2, rgba(255, 255, 255, 0.02));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.template-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+/* Click to append: typing braces by hand is the easiest part to get wrong. */
+.token-chip {
+  padding: 2px 5px;
+  border: var(--rule-1) solid var(--line-faint);
+  background: transparent;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.token-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* An inline caution under a field, e.g. transparency asked for on a JPG. */
+.field-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* The ratio beside a user-named group: context, not the heading itself. */
+.crop-ratio-note {
+  margin-left: 7px;
+  font-weight: 500;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* Undo and redo pair like the zoom stepper: one control, two directions. */
+.history-controls {
+  display: flex;
+  align-items: stretch;
+  border-left: var(--rule-2) solid var(--line);
+}
+
+.history-controls button {
+  border-left: 0;
+  padding: 0 11px;
+}
+
+/* Icon-only buttons: no label to set the width, so hold a square-ish cell. */
+.history-controls button svg {
+  margin-top: 0;
+}
+
+/* Zoom is a tight group, read as one control rather than separate tools. */
+.zoom-controls {
+  display: flex;
+  align-items: stretch;
+  border-left: var(--rule-2) solid var(--line);
+}
+
+.zoom-controls button {
+  border-left: 0;
+  padding: 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fixed width so stepping through 100/150/225% does not shift the toolbar. */
+.zoom-readout {
+  min-width: 62px;
+  color: var(--muted);
+}
+
+/* Brush size lives in its own cell, matching the toolbar's divided rhythm. */
+.brush-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-left: var(--rule-2) solid var(--line);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Advisory, not a control: no border or hit target of its own. */
+.zoom-hint {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+/* Quiet label; the number beside the slider carries the value. */
+.brush-size-label {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.brush-size input[type='range'] {
+  width: 96px;
+  accent-color: var(--accent);
+}
+
+/* Fixed width, so dragging the slider does not jiggle the toolbar. */
+.brush-size span {
+  min-width: 38px;
+  font-variant-numeric: tabular-nums;
+}
+
 .spacer {
   flex: 1;
+}
+
+/*
+ * The measurements are the first thing to give up room: every control left of
+ * them is actionable, and a trimmed readout costs less than a toolbar that
+ * scrolls its buttons out of reach. Whole cells drop at each breakpoint
+ * instead of all three shrinking into unreadable stubs.
+ */
+@media (max-width: 1500px) {
+  .dim:nth-child(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 1320px) {
+  .dim:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .dims {
+    display: none;
+  }
 }
 
 .dims {
   display: flex;
   align-items: stretch;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
   border-left: var(--rule-2) solid var(--line);
   font-size: 11px;
   font-weight: 500;
@@ -1231,6 +1504,11 @@ button.danger:hover:not(:disabled) {
 .dim {
   display: flex;
   align-items: center;
+  /* Truncate cleanly rather than letting cells collapse onto each other. */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 11px 14px;
   white-space: nowrap;
 }
