@@ -999,6 +999,30 @@ button.danger:hover:not(:disabled) {
   margin-top: 14px;
 }
 
+/*
+ * A collapsed crop sits closer to its neighbours: with no sizes below it, the
+ * spacing meant for a heading-plus-body left the list looking gappy and made
+ * the groups read as further apart than they are.
+ */
+.crop-group.collapsed {
+  margin-top: 2px;
+}
+
+/*
+ * Collapsed, but still a control. Dimming it to the point of looking disabled
+ * hid the fact that these are the other crops, one click away -- the rule is
+ * dropped instead, which separates them from the expanded group without
+ * suggesting they are inert.
+ */
+.crop-group.collapsed > .crop-group-head {
+  border-bottom-color: transparent;
+}
+
+.crop-group.collapsed > .crop-group-head:hover:not(:disabled) {
+  border-bottom-color: var(--line-faint);
+  color: var(--text);
+}
+
 .crop-group-head {
   display: flex;
   align-items: center;

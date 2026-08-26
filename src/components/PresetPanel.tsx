@@ -434,6 +434,16 @@ export function PresetPanel({
 
     return (
       <div className="staff">
+        {/*
+          * Settings first.
+          *
+          * They belong to the crop being edited and are what a run is usually
+          * adjusting -- suffix, filename, format. Below the size groups they
+          * sat past a scroll, so changing a filename template meant scrolling
+          * past every size in every group to reach it.
+          */}
+        {renderPresetSettings(active)}
+
         {/* Both dimensions are typed. A size IS its ratio, so asking for one
             and deriving the other would just be picking a shape again. */}
         <div className="custom-entry">
@@ -484,12 +494,33 @@ export function PresetPanel({
           )}
         </div>
 
-        {/* One list, split by crop. Each heading is a crop you frame once. */}
-        {group.map((preset) => {
+        {/*
+          * One list, split by crop. Each heading is a crop you frame once.
+          *
+          * Ordered active crop, then the ones the user named, then the
+          * auto-generated ratio groups. A named crop was deliberate and is
+          * worth more than a group that appeared because a size at a new ratio
+          * was typed, and the active one has to be reachable without hunting.
+          *
+          * Only the active crop shows its sizes. Expanded, every group at once
+          * pushed the panel past a scroll and buried whatever was being
+          * worked on; collapsed, the count on each heading still says what is
+          * inside without opening it.
+          */}
+        {[...group]
+          .sort((a, b) => {
+            if (a.id === active.id) return -1;
+            if (b.id === active.id) return 1;
+            const aNamed = a.name !== ratioLabel(a);
+            const bNamed = b.name !== ratioLabel(b);
+            if (aNamed !== bNamed) return aNamed ? -1 : 1;
+            return 0;
+          })
+          .map((preset) => {
           const ratio = presetRatio(preset);
           const isActive = preset.id === active.id;
           return (
-            <div key={preset.id} className={`crop-group ${isActive ? 'on' : ''}`}>
+            <div key={preset.id} className={`crop-group ${isActive ? 'on' : 'collapsed'}`}>
               <button
                 className="crop-group-head"
                 aria-pressed={isActive}
@@ -519,11 +550,13 @@ export function PresetPanel({
                   {preset.sizes.filter(isSizeEnabled).length}/{preset.sizes.length}
                 </span>
               </button>
-              <div className="sizes">
-                {preset.sizes.map((size, sizeIndex) =>
-                  renderSizeCell(preset, size, sizeIndex, ratio)
-                )}
-              </div>
+              {isActive && (
+                <div className="sizes">
+                  {preset.sizes.map((size, sizeIndex) =>
+                    renderSizeCell(preset, size, sizeIndex, ratio)
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -552,7 +585,6 @@ export function PresetPanel({
           );
         })()}
 
-        {renderPresetSettings(active)}
       </div>
     );
   };
