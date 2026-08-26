@@ -495,6 +495,43 @@ export function PresetPanel({
         </div>
 
         {/*
+          * Recent sizes sit directly above the crops, as part of adding a
+          * size rather than as a footnote after the list.
+          *
+          * Always rendered, and sizes already in this crop are shown disabled
+          * rather than dropped. Filtering them out meant the row silently
+          * changed shape as sizes were added, and a size vanishing right after
+          * being clicked read as it having been lost.
+          */}
+        {recentSizes.length > 0 && (
+          <div className="recents">
+            <span className="recents-label">Recent</span>
+            <div className="recent-chips">
+              {recentSizes.map((r) => {
+                const already = active.sizes.some(
+                  (sz) => sz.width === r.width && sz.height === r.height
+                );
+                return (
+                  <button
+                    key={`${r.width}x${r.height}`}
+                    className={`chip ${already ? 'used' : ''}`}
+                    disabled={already}
+                    title={
+                      already
+                        ? `${r.width}×${r.height} is already in this crop`
+                        : `Add ${r.width}×${r.height}`
+                    }
+                    onClick={() => addStaffSize(r.width, r.height)}
+                  >
+                    {r.width}×{r.height}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/*
           * One list, split by crop. Each heading is a crop you frame once.
           *
           * Ordered active crop, then the ones the user named, then the
@@ -561,29 +598,6 @@ export function PresetPanel({
           );
         })}
 
-        {(() => {
-          const offered = recentSizes.filter(
-            (r) => !active.sizes.some((s) => s.width === r.width && s.height === r.height)
-          );
-          if (offered.length === 0) return null;
-          return (
-            <div className="recents">
-              <span className="recents-label">Recent</span>
-              <div className="recent-chips">
-                {offered.map((r) => (
-                  <button
-                    key={`${r.width}x${r.height}`}
-                    className="chip"
-                    title={`Add ${r.width}×${r.height}`}
-                    onClick={() => addStaffSize(r.width, r.height)}
-                  >
-                    {r.width}×{r.height}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
 
       </div>
     );

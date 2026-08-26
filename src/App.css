@@ -919,8 +919,15 @@ button.danger:hover:not(:disabled) {
 
 /* ---- add a size: the one place anything is typed ---- */
 
+/*
+ * The box is a raised panel inside a flush-edged column, so it needs room on
+ * every side. It previously had margin only below, which left it crowding the
+ * control above and sitting hard against both walls.
+ */
 .custom-entry {
-  margin-bottom: 14px;
+  /* Slightly more below than above: the box opens the "add a size" group that
+     Recent belongs to, so it should sit nearer what follows than what precedes. */
+  margin: 16px 2px 14px;
   padding: 11px 12px 12px;
   background: var(--panel-2);
   border: var(--rule-2) solid var(--line);
@@ -1068,10 +1075,16 @@ button.danger:hover:not(:disabled) {
 
 /* ---- recent dimensions ---- */
 
+/*
+ * Sits above the crop list as part of adding a size, so it closes with a rule
+ * rather than opening with one -- the divider belongs between it and the
+ * crops it precedes.
+ */
 .recents {
-  margin-top: 14px;
-  padding-top: 11px;
-  border-top: var(--rule-3) solid var(--line-faint);
+  margin-top: 2px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: var(--rule-3) solid var(--line-faint);
 }
 
 .recents-label {
@@ -1089,6 +1102,17 @@ button.danger:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+/*
+ * A recent size already in this crop. Shown rather than removed, so the row
+ * keeps its shape as sizes are added -- struck through because "already here"
+ * is a fact about the size, which reads faster than a disabled-looking chip.
+ */
+.chip.used {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: default;
 }
 
 .chip {
