@@ -1,5 +1,5 @@
 import type { Preset, PresetCategory } from './types';
-import { presetRatio, ratiosMatch, withPresetDefaults } from './types';
+import { presetRatio, ratioLabel, ratiosMatch, withPresetDefaults } from './types';
 
 let seq = 0;
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
@@ -172,17 +172,39 @@ export const DEFAULT_PRESETS: Preset[] = [
 const STORAGE_KEY = 'framewise.presets.v6';
 
 /**
- * Fold staff groups that share a ratio into one.
+ * Whether a staff preset is an auto-generated ratio group rather than one the
+ * user named.
+ *
+ * Groups are created on demand when a size at a new ratio is added, and are
+ * named for the ratio itself -- "1:1", "3:4", or the decimal when the shape
+ * has no common name. Anything else was typed by a person.
+ */
+function isAutoRatioGroup(preset: Preset): boolean {
+  return preset.name === ratioLabel(preset);
+}
+
+/**
+ * Fold auto-generated staff groups that share a ratio into one.
  *
  * Staff sizes are grouped by ratio so each group is one crop; two groups at
  * the same ratio means the same crop framed twice and the same size exported
  * twice. Repairs stored data written before that was enforced, and keeps a
  * hand-edited JSON import honest.
+ *
+ * Only auto-generated groups are folded. A preset the user named and gave its
+ * own suffix is a deliberate output, not a duplicate to be tidied away: this
+ * used to absorb one whose ratio happened to match a built-in group, which
+ * deleted its name and quality outright and silently retagged its exports with
+ * the survivor's suffix -- "-square" where the user had asked for "-headshot".
  */
 function mergeStaffGroupsByRatio(presets: Preset[]): Preset[] {
   const out: Preset[] = [];
   for (const preset of presets) {
-    if (preset.category !== 'photo' || preset.sizes.length === 0) {
+    if (
+      preset.category !== 'photo' ||
+      preset.sizes.length === 0 ||
+      !isAutoRatioGroup(preset)
+    ) {
       out.push(preset);
       continue;
     }
@@ -190,6 +212,7 @@ function mergeStaffGroupsByRatio(presets: Preset[]): Preset[] {
       (p) =>
         p.category === 'photo' &&
         p.sizes.length > 0 &&
+        isAutoRatioGroup(p) &&
         ratiosMatch(presetRatio(p), presetRatio(preset))
     );
     if (!twin) {
