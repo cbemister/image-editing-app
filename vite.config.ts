@@ -14,4 +14,17 @@ export default defineConfig({
    */
   base: process.env.BASE_PATH || '/',
   plugins: [react()],
+  server: {
+    port: 5173,
+    /**
+     * Fail instead of hunting for a free port.
+     *
+     * Vite's default is to increment when 5173 is taken, so a dev server that
+     * was never shut down is invisible: the next `npm run dev` quietly starts
+     * on 5174, then 5175, and each orphan keeps holding its port and its
+     * memory. Failing loudly turns a silent leak into an error that names the
+     * problem, and `npm run dev:kill` clears it.
+     */
+    strictPort: true,
+  },
 })
