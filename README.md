@@ -27,6 +27,19 @@ npm run dev
 
 Then open http://localhost:5173 in Chrome or Edge.
 
+The dev port is pinned. If it is already taken, `npm run dev` fails with
+"Port 5173 is already in use" rather than quietly starting on 5174 -- Vite's
+default of hunting for a free port hides servers that were never shut down, and
+they accumulate, each holding a port and its memory. To clear one:
+
+```
+npm run dev:kill          # frees the default port
+npm run dev:kill -- 5180  # frees a specific one
+```
+
+It finds the process by the port it holds, so it works on Windows too, where
+`pkill -f vite` matches nothing (the server runs as `node.exe`).
+
 ### Install it as a desktop app (works with no server running)
 
 ```
@@ -39,7 +52,7 @@ Open http://localhost:4173, then in Chrome/Edge: ⋮ → **Cast, save and share*
 needed.
 
 The app caches itself on install — about 12 MB, including the face-detection
-model — so **once installed you can stop the server and it keeps working**,
+and background-removal models — so **once installed you can stop the server and it keeps working**,
 offline included. Launch it from the taskbar like any other app.
 
 `npm run dev` is only for developing. `npm run serve` is only needed to install
@@ -89,6 +102,77 @@ backup or for sharing with a colleague.
 If you add a size whose ratio doesn't match its preset, the field turns amber
 with a `!` — that size would be distorted. Move it to its own preset.
 
+## Filenames
+
+Each preset carries a filename template. The default reproduces the old
+behaviour:
+
+```
+{name}-{suffix}-{size}   ->  jane-smith-square-600x600.jpg
+{name}_{w}x{h}           ->  jane-smith_600x600.jpg
+{preset}-{name}          ->  1x1-jane-smith.jpg
+```
+
+| Token | Is |
+| ----- | -- |
+| `{name}` | Source filename without its extension |
+| `{suffix}` | The preset's suffix |
+| `{preset}` | The preset's name (`:` written as `x`) |
+| `{w}` / `{h}` | Output width / height |
+| `{size}` | `600x600` |
+| `{ext}` | The format's extension |
+
+The extension is appended automatically, so a template never has to end in one.
+The panel shows a worked example under the field, and the token chips append as
+you click them.
+
+Characters no filesystem accepts (`/ \ : * ? " < >`) are stripped rather than
+substituted, so a name comes out shorter rather than quietly gaining
+punctuation you did not type. An unknown token is left as written, so a typo is
+visible instead of silently vanishing.
+
+A preset with its own template owns the whole name, including whether
+dimensions appear -- the "size in filename" switch in the top bar applies only
+to presets still on the default.
+
+## Undo
+
+Every edit is undoable: crop drags, auto-frame, background on/off, and each
+brush stroke as its own step.
+
+| Action | Shortcut |
+| ------ | -------- |
+| Undo   | `Ctrl+Z` (`Cmd+Z`) |
+| Redo   | `Ctrl+Shift+Z`, or `Ctrl+Y` |
+
+History is **per image**, so undo never jumps you to a different photo
+mid-batch, and switching images keeps what you did to each.
+
+A crop drag is one step, not one per frame, and so is a brush stroke -- history
+records the gesture, not the pointer events inside it.
+
+Depth is capped at 12 steps because cutouts are full-resolution bitmaps: at
+2140x2647 each is roughly 22MB, so an unbounded stack would grow into hundreds
+of megabytes over a session. Older states are freed as they fall off the end.
+
+## Two modes
+
+The stage toolbar is split by activity, because framing and retouching want
+different tools and both want the drag:
+
+- **Crop** — framing: auto-frame, apply-to-all, and a draggable crop box.
+- **Retouch** — the refine brushes.
+
+**Remove background** sits on both bars. It is a setup step rather than a
+retouching one -- the brushes exist to clean up its result -- so it is not
+hidden behind a tab you would have to know to visit. Removing a background does
+not switch modes either; framing and cutting out are both things you might want
+to do first.
+
+In Retouch the crop frame is still drawn, faint and without handles, so you can
+see what will actually be exported while painting -- but it no longer competes
+with the brush for the pointer. Zoom, Pan, and Reset stay available in both.
+
 ## Cropping
 
 - **Drag inside** the box to move it; **drag a corner** to resize. The ratio
@@ -102,6 +186,68 @@ with a `!` — that size would be distorted. Move it to its own preset.
   proportionally, useful when photos are framed consistently.
 - Each image keeps a separate crop per preset, so switching presets never loses
   your work.
+
+## Removing a background
+
+Some dealerships shoot against a branded backdrop. Tick **remove background**
+in a preset's settings and every export through that preset cuts the subject
+out; leave it off and photos are exported untouched.
+
+It is a preset setting rather than a button because it is a per-dealership
+fact, not a per-photo decision -- set it once on the presets that need it and
+it simply happens. The source image is never modified.
+
+The model is MediaPipe's selfie segmenter, running locally from
+`public/mediapipe` like the face detector. It is **trained on people**, so the
+option is offered for photo and social presets and hidden for logos, where it
+would return a confident but meaningless cutout.
+
+Transparency only survives in a format that has an alpha channel. The panel
+warns if the option is ticked on a JPG preset; use PNG or WebP.
+
+### Refining the cutout by hand
+
+The model is not perfect, and some of what it gets wrong cannot be fixed by
+tuning. On a branded backdrop it often keeps small pieces of a logo that touch
+the subject's outline, scoring them above 0.9 -- as confidently as the person
+themselves. No threshold removes those without removing the subject too, which
+is why the fix is a brush rather than a slider.
+
+With a background removed, two tools appear:
+
+- **Erase** (solid brush icon) paints away background the model kept -- logo
+  marks, stray edges.
+- **Restore** (hollow brush icon) paints back subject it cut away.
+
+Drag on the image to paint; the ring under the cursor is the true brush size,
+and the slider next to the buttons adjusts it. Strokes are soft-edged and go on
+at partial strength, so they blend into the feathered boundary and build up
+with repeated passes. Overshooting is recoverable -- switch to the other tool
+and paint back over it.
+
+While a brush is armed the crop box is not draggable, so painting near the edge
+of the frame cannot move the crop by accident. Click the armed tool again to
+put the pointer back on the crop box.
+
+**Reset** returns the image to how it loaded: crop re-centred, background
+restored, brush work discarded.
+
+### Zooming
+
+Fragments are often only a few pixels across, so the stage zooms:
+
+- **Scroll wheel** over the image zooms about the pointer, so whatever is under
+  the cursor stays under it.
+- The **− / % / +** controls in the toolbar step the zoom; clicking the
+  percentage returns to fit.
+- **Pan** arms a drag-to-move tool; **holding Space** does the same without
+  arming it, and middle-drag works too. Zoomed in, the crop box fills the
+  viewport, so one of these is how you move around -- there is no empty margin
+  left to drag.
+
+Zoom affects only the view. The crop rect, the brush size, and everything
+exported are unchanged by it -- a 24px brush stays 24 screen pixels, which at
+high zoom means finer detail on the image itself.
 
 ## Exporting
 
@@ -178,11 +324,12 @@ Two things to get right on the host:
 
 ### Assets are generated, not committed
 
-`public/mediapipe/` holds ~23 MB of WASM and the face model. Those are build
+`public/mediapipe/` holds ~23 MB of WASM and the two models — face detection
+and selfie segmentation. Those are build
 inputs rather than source, so they are gitignored and produced by
 `scripts/fetch-assets.mjs`, which runs automatically on `npm install`. The WASM
 is copied from the installed `@mediapipe/tasks-vision` package so it always
-matches `package.json`; the model is downloaded once and cached.
+matches `package.json`; the models are downloaded once and cached.
 
 To regenerate them by hand: `node scripts/fetch-assets.mjs`
 
