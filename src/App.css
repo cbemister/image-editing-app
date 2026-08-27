@@ -1345,6 +1345,36 @@ button.danger:hover:not(:disabled) {
 }
 
 /*
+ * "Remove background" once it has done its job. It stays lit as the state
+ * marker above, but it is spent -- Undo is the way back -- so it also reads as
+ * disabled rather than like a live toggle waiting for a second click.
+ */
+.stage-tools > button.bg-toggle.on {
+  opacity: 0.75;
+  cursor: default;
+}
+
+/* An inline caution sitting in the tools row (e.g. transparency on a JPG). */
+.stage-tools > .stage-note {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 12px;
+  white-space: nowrap;
+}
+
+/* Prompt shown in Retouch before a cutout exists to paint on. */
+.mode-hint {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/*
  * A tool button: icon beside label. The icon is what separates "a mode you
  * drag with" from the plain command buttons next to it -- as bare words,
  * Erase and Restore read as one-shot actions.

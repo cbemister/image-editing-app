@@ -316,26 +316,11 @@ export function PresetPanel({
           </select>
         </label>
         {/*
-          * Offered only for people-shaped presets: the model is a selfie
-          * segmenter, so on a logo it returns confident nonsense. A branded
-          * backdrop is a per-dealership fact, which makes it a property of the
-          * output rather than a step to remember on each photo.
+          * Background removal lives on the stage ("Remove background"), not
+          * here: it is a per-image call -- some photos in a run are shot on a
+          * plain wall and need nothing -- and it wants the live preview and the
+          * retouch brushes, which a preset checkbox can't offer.
           */}
-        {preset.category !== 'logo' && (
-          <label className="check bg-remove">
-            <input
-              type="checkbox"
-              checked={preset.removeBackground === true}
-              onChange={(e) => update(preset.id, { removeBackground: e.target.checked })}
-            />
-            remove background
-            {preset.removeBackground && preset.format === 'image/jpeg' && (
-              // JPEG cannot store alpha, so the cutout would be flattened onto
-              // white -- worth saying before a batch is exported, not after.
-              <span className="field-note">JPG has no transparency — use PNG or WebP</span>
-            )}
-          </label>
-        )}
         {preset.format !== 'image/png' && (
           <label>
             quality {Math.round(preset.quality * 100)}

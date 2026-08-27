@@ -189,21 +189,22 @@ with the brush for the pointer. Zoom, Pan, and Reset stay available in both.
 
 ## Removing a background
 
-Some dealerships shoot against a branded backdrop. Tick **remove background**
-in a preset's settings and every export through that preset cuts the subject
-out; leave it off and photos are exported untouched.
+Some photos are shot against a branded backdrop that has to go; most are shot
+against a plain wall and need nothing. Click **Remove background** on the stage
+toolbar and the subject is cut out of the active photo right there in the
+preview -- what you see is what exports. It is a per-image call, so a run can
+mix cut-out and untouched photos.
 
-It is a preset setting rather than a button because it is a per-dealership
-fact, not a per-photo decision -- set it once on the presets that need it and
-it simply happens. The source image is never modified.
+Clicking it drops you into **Retouch** to clean the edges, and the button
+disables once it is on: the source image is never modified, so **Undo** is the
+way back.
 
 The model is MediaPipe's selfie segmenter, running locally from
-`public/mediapipe` like the face detector. It is **trained on people**, so the
-option is offered for photo and social presets and hidden for logos, where it
-would return a confident but meaningless cutout.
+`public/mediapipe` like the face detector. It is **trained on people** -- on a
+logo it returns a confident but meaningless cutout.
 
-Transparency only survives in a format that has an alpha channel. The panel
-warns if the option is ticked on a JPG preset; use PNG or WebP.
+Transparency only survives in a format that has an alpha channel. The toolbar
+warns if the active preset is a JPG; set that preset to PNG or WebP.
 
 ### Refining the cutout by hand
 
@@ -213,7 +214,7 @@ the subject's outline, scoring them above 0.9 -- as confidently as the person
 themselves. No threshold removes those without removing the subject too, which
 is why the fix is a brush rather than a slider.
 
-With a background removed, two tools appear:
+In Retouch, with a background removed, two tools appear:
 
 - **Erase** (solid brush icon) paints away background the model kept -- logo
   marks, stray edges.

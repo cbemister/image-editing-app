@@ -36,17 +36,6 @@ export interface Preset {
   /** Inset as a fraction (0..0.45) of the frame's shorter edge, 'contain' only. */
   padding?: number;
   /**
-   * Cut the subject out of the background when exporting through this preset.
-   *
-   * A property of the output rather than of the image: some dealerships shoot
-   * against a branded backdrop and want it gone from every photo, most do not
-   * want it touched at all. Declaring it on the preset means it is set once
-   * and then simply happens, instead of being a step to remember per image.
-   *
-   * Only meaningful for photos of people -- the model is a selfie segmenter.
-   */
-  removeBackground?: boolean;
-  /**
    * Pattern for exported filenames, e.g. "{name}_{w}x{h}".
    *
    * Absent means the built-in default. The extension is appended from the
@@ -79,7 +68,6 @@ export function withPresetDefaults(preset: Preset): Preset {
     fit: preset.fit ?? 'cover',
     background: preset.background ?? '#ffffff',
     padding: preset.padding ?? 0,
-    removeBackground: preset.removeBackground ?? false,
     filenameTemplate: preset.filenameTemplate ?? DEFAULT_TEMPLATE,
   };
 }

@@ -1,7 +1,6 @@
 import type { CropRect, LoadedImage, OutputSize, Preset } from './types';
 import { activeBitmap, isSizeEnabled } from './types';
 import { cropFor } from './crop';
-import { removeBackground } from './segment';
 import { buildFilename } from './filename';
 
 export interface ExportItem {
@@ -168,44 +167,23 @@ export async function exportImage(
   const items: ExportItem[] = [];
 
   /*
-   * Cutout for presets that ask for one, computed at most once per image.
-   *
-   * Segmentation costs a few hundred milliseconds, so it is done lazily (only
-   * if some preset actually wants it) and shared across every preset and size
-   * in the run rather than repeated per output file.
+   * Background removal is a per-image decision now, made with the "Remove
+   * background" toggle on the stage. `activeBitmap` returns the cutout when it
+   * is on -- retouched edges and all -- and the original otherwise, so export
+   * ships exactly what the stage showed.
    */
-  let cutout: ImageBitmap | null | undefined;
-  const cutoutFor = async (): Promise<ImageBitmap | null> => {
-    if (cutout === undefined) {
-      cutout = await removeBackground(image.bitmap);
+  const source = activeBitmap(image);
+
+  for (const preset of presets) {
+    const crop = cropFor(image, preset);
+    for (const size of preset.sizes) {
+      if (!isSizeEnabled(size)) continue;
+      const blob = await renderSize(source, crop, size, preset);
+      items.push({
+        filename: filenameFor(image, preset, size, includeDimensions),
+        blob,
+      });
     }
-    return cutout;
-  };
-
-  try {
-    for (const preset of presets) {
-      const crop = cropFor(image, preset);
-
-      // The preset's own setting wins; the per-image toggle is the fallback,
-      // so a cutout made by hand still exports through a plain preset.
-      let source = activeBitmap(image);
-      if (preset.removeBackground) {
-        source = (await cutoutFor()) ?? source;
-      }
-
-      for (const size of preset.sizes) {
-        if (!isSizeEnabled(size)) continue;
-        const blob = await renderSize(source, crop, size, preset);
-        items.push({
-          filename: filenameFor(image, preset, size, includeDimensions),
-          blob,
-        });
-      }
-    }
-  } finally {
-    // Owned by this call, so it is freed here -- the image's own cutout, if
-    // any, is a different bitmap and is left alone.
-    if (cutout) cutout.close();
   }
 
   return items;

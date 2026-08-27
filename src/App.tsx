@@ -337,23 +337,24 @@ export default function App() {
   };
 
   /**
-   * Cut the subject out of the active photo, or put the background back.
+   * Cut the subject out of the active photo and drop into Retouch to clean the
+   * edges. One-way: Undo is the way back, so the button disables once it is on.
    *
-   * The result is cached on the image, so toggling it off and on again is
-   * instant and never re-runs the model. The original bitmap is kept either
-   * way -- this is a view of the image, not a destructive edit.
+   * The original bitmap is kept, and the cutout is cached on the image, so an
+   * undo/redo across it never re-runs the model.
    */
-  const toggleBackground = async () => {
-    if (!activeImage) return;
+  const removeBackgroundAndRetouch = async () => {
+    if (!activeImage || activeImage.useCutout) return;
 
-    // Already computed: just flip which bitmap is in use.
+    setStageMode('retouch');
+
+    // Computed on a previous pass (e.g. undone, now redone): reuse it.
     if (activeImage.cutout) {
-      const nowOn = !activeImage.useCutout;
-      commit(activeImage.id, nowOn ? 'remove background' : 'restore background');
+      commit(activeImage.id, 'remove background');
       setImages((prev) =>
-        prev.map((img) => (img.id === activeImage.id ? { ...img, useCutout: nowOn } : img))
+        prev.map((img) => (img.id === activeImage.id ? { ...img, useCutout: true } : img))
       );
-      setStatus(nowOn ? 'Cutout shown.' : 'Cutout hidden.');
+      setStatus('Background removed. Use Erase and Restore to fix the edges.');
       return;
     }
 
@@ -371,9 +372,7 @@ export default function App() {
           img.id === activeImage.id ? { ...img, cutout, useCutout: true } : img
         )
       );
-      setStatus(
-        'Cutout previewed. Erase and Restore fix the edges; tick "remove background" on a preset to export it.'
-      );
+      setStatus('Background removed. Use Erase and Restore to fix the edges.');
     } catch (err) {
       setStatus(
         `Background removal failed: ${err instanceof Error ? err.message : String(err)}`
@@ -888,24 +887,12 @@ const beginStroke = useCallback(() => {
                 ) : (
                   <>
                     {/*
-                      * Retouch previews a cutout so it can be corrected by
-                      * hand. Whether an export actually cuts out is a preset
-                      * setting ("remove background" in the preset panel) --
-                      * this is the working view, not the configuration.
+                      * Retouch is where a cutout's edges get fixed. The brushes
+                      * need a cutout to paint on, so they show only once
+                      * "Remove background" (below) is on; otherwise the mode
+                      * just prompts for it.
                       */}
-                    <button
-                      onClick={toggleBackground}
-                      disabled={busy}
-                      className={activeImage.useCutout ? 'on' : undefined}
-                      title="Preview the cutout so it can be corrected. Which exports cut out is set per preset."
-                    >
-                      {activeImage.useCutout ? 'Hide cutout' : 'Preview cutout'}
-                    </button>
-                    {/*
-                      * Brushes need a cutout to paint on, so they appear only
-                      * once there is one.
-                      */}
-                    {activeImage.useCutout && (
+                    {activeImage.useCutout ? (
                       <>
                         <button
                           onClick={() => {
@@ -943,8 +930,41 @@ const beginStroke = useCallback(() => {
                           </label>
                         )}
                       </>
+                    ) : (
+                      <span className="mode-hint">Remove a background to edit its edges →</span>
                     )}
                   </>
+                )}
+
+                {/*
+                  * Background removal is one toggle, shown in both modes and
+                  * kept at the end -- it is a per-image decision made once a
+                  * crop is roughly set, not a framing tool. It sets the same
+                  * state the Retouch brushes paint on (a preset no longer
+                  * carries its own copy), cuts the subject out in the preview
+                  * immediately, and is what actually exports. Once on, the
+                  * button is spent -- clicking it dropped into Retouch and Undo
+                  * is the way back -- so it disables.
+                  */}
+                <button
+                  onClick={removeBackgroundAndRetouch}
+                  disabled={busy || activeImage.useCutout}
+                  className={`bg-toggle ${activeImage.useCutout ? 'on' : ''}`}
+                  title={
+                    activeImage.useCutout
+                      ? 'Background removed — use Undo to bring it back'
+                      : 'Cut the subject out and drop the background, then refine the edges'
+                  }
+                >
+                  {activeImage.useCutout ? 'Background removed' : 'Remove background'}
+                </button>
+                {activeImage.useCutout && activePreset.format === 'image/jpeg' && (
+                  // JPEG has no alpha channel, so the cutout flattens onto white
+                  // on export -- flagged by the toggle, not left as an
+                  // after-the-batch surprise.
+                  <span className="field-note stage-note">
+                    JPG can’t save transparency — set this preset to PNG or WebP
+                  </span>
                 )}
 
                 <span className="spacer" />
