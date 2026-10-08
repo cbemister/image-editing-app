@@ -20,6 +20,8 @@ export interface Snapshot {
    */
   cutout?: ImageBitmap;
   useCutout: boolean;
+  /** Whether the Chairman's Club badge was on. */
+  badge: boolean;
   /** Short description, for the tooltip on the undo button. */
   label: string;
 }

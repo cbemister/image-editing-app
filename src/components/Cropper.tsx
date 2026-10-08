@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CropRect } from '../lib/types';
 import { clampCrop } from '../lib/crop';
+import { drawBadge } from '../lib/badge';
 
 type Handle = 'nw' | 'ne' | 'sw' | 'se' | 'move';
 
@@ -46,6 +47,8 @@ interface Props {
   onPaintStart?(): void;
   /** Called once when a paint drag finishes, for cleanup the stroke deferred. */
   onPaintEnd?(): void;
+  /** Chairman's Club logo to preview across the bottom of the crop. */
+  badge?: ImageBitmap | null;
   /** Reports the current zoom factor, for a readout in the toolbar. */
   onZoomChange?(factor: number): void;
   /** Set by the parent to drive zoom from toolbar buttons. */
@@ -69,6 +72,7 @@ export function Cropper({
   onPaint,
   onPaintStart,
   onPaintEnd,
+  badge = null,
   onZoomChange,
   zoomCommand,
 }: Props) {
@@ -199,6 +203,17 @@ export function Cropper({
     const cw = crop.width * view.scale;
     const ch = crop.height * view.scale;
 
+    // Same helper as the exporter, scaled to the on-screen crop, so the
+    // preview shows exactly where the badge will land in every size.
+    if (badge) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(tl.x, tl.y, cw, ch);
+      ctx.clip();
+      drawBadge(ctx, badge, tl.x, tl.y, cw, ch);
+      ctx.restore();
+    }
+
     ctx.fillStyle = 'rgba(10, 12, 16, 0.62)';
     ctx.beginPath();
     ctx.rect(0, 0, width, height);
@@ -295,6 +310,7 @@ export function Cropper({
     brushSize,
     cursor,
     cropInteractive,
+    badge,
   ]);
 
   const hitTest = (px: number, py: number): Handle | null => {

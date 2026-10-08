@@ -2,6 +2,7 @@ import type { CropRect, LoadedImage, OutputSize, Preset } from './types';
 import { activeBitmap, isSizeEnabled } from './types';
 import { cropFor } from './crop';
 import { buildFilename } from './filename';
+import { drawBadge, loadBadge } from './badge';
 
 export interface ExportItem {
   filename: string;
@@ -23,7 +24,9 @@ export async function renderSize(
   bitmap: ImageBitmap,
   crop: CropRect,
   size: OutputSize,
-  preset: Preset
+  preset: Preset,
+  /** Chairman's Club logo to lay across the bottom, or none. */
+  badge?: ImageBitmap
 ): Promise<Blob> {
   const { format, quality, fit } = preset;
   let sourceCanvas: HTMLCanvasElement | OffscreenCanvas;
@@ -126,6 +129,10 @@ export async function renderSize(
     );
   }
 
+  // Drawn at the output size, after the photo, so it sits on top and stays
+  // sharp rather than being scaled down with the crop.
+  if (badge) drawBadge(octx, badge, 0, 0, size.width, size.height);
+
   if (out instanceof OffscreenCanvas) {
     return out.convertToBlob({ type: format, quality });
   }
@@ -173,12 +180,21 @@ export async function exportImage(
    * ships exactly what the stage showed.
    */
   const source = activeBitmap(image);
+  const badge = image.badge ? await loadBadge() : undefined;
 
   for (const preset of presets) {
     const crop = cropFor(image, preset);
     for (const size of preset.sizes) {
       if (!isSizeEnabled(size)) continue;
-      const blob = await renderSize(source, crop, size, preset);
+      // The badge belongs on photos. A 'contain' preset is a logo fitted into
+      // padding, where a second logo across the bottom makes no sense.
+      const blob = await renderSize(
+        source,
+        crop,
+        size,
+        preset,
+        preset.fit === 'cover' ? badge : undefined
+      );
       items.push({
         filename: filenameFor(image, preset, size, includeDimensions),
         blob,

@@ -137,7 +137,7 @@ to presets still on the default.
 
 ## Undo
 
-Every edit is undoable: crop drags, auto-frame, background on/off, and each
+Every edit is undoable: crop drags, auto-frame, background on/off, the Chairman's Club badge, and each
 brush stroke as its own step.
 
 | Action | Shortcut |
@@ -249,6 +249,25 @@ Fragments are often only a few pixels across, so the stage zooms:
 Zoom affects only the view. The crop rect, the brush size, and everything
 exported are unchanged by it -- a 24px brush stays 24 screen pixels, which at
 high zoom means finer detail on the image itself.
+
+## Chairman's Club badge
+
+For club members, **Chairman's Club** on the stage toolbar lays the AutoCanada
+Chairman's Club logo across the bottom of the photo, inside the crop. The logo
+sits on a white band so it reads the same over a dark suit, a busy dealership
+backdrop, or a cut-out on white.
+
+- It is **per image** -- turn it on for the members in a batch and leave it off
+  for everyone else. Undo covers it like any other edit.
+- It is drawn at each **output size**, after the photo is scaled, so it stays
+  sharp at 150px as well as 600px and lands in the same place in every size.
+  The preview on the stage uses the same drawing code.
+- It applies to photo and social crops only; the button is hidden on logo
+  presets.
+
+The logo is `src/assets/chairmans-club.png` (the transparent version). Vite
+bundles it with the app, so it works offline. Its transparent margin is trimmed
+off when it loads; size and spacing are set in `src/lib/badge.ts`.
 
 ## Exporting
 

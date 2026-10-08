@@ -28,6 +28,7 @@ import {
 } from './lib/history';
 import { applyUpdate, registerServiceWorker } from './lib/sw-register';
 import { exportImage } from './lib/export';
+import { loadBadge } from './lib/badge';
 import {
   downloadItems,
   hasDirectoryPicker,
@@ -126,6 +127,18 @@ export default function App() {
   // Same for the segmenter, so the first Remove background click does not wait.
   useEffect(() => preloadSegmenter(), []);
 
+  /*
+   * The Chairman's Club logo, decoded up front so toggling it on previews
+   * immediately. The exporter loads it through the same cache.
+   */
+  const [badgeLogo, setBadgeLogo] = useState<ImageBitmap | null>(null);
+  useEffect(() => {
+    loadBadge().then(
+      (logo) => setBadgeLogo(logo),
+      () => setStatus('Chairman’s Club logo failed to load.')
+    );
+  }, []);
+
   // Offline support; surfaces a prompt when a newer build is cached and waiting.
   useEffect(() => registerServiceWorker(() => setUpdateReady(true)), []);
 
@@ -201,6 +214,7 @@ export default function App() {
       crops: { ...image.crops },
       cutout: image.cutout,
       useCutout: image.useCutout === true,
+      badge: image.badge === true,
       label,
     }),
     []
@@ -380,6 +394,17 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Lay the Chairman's Club badge across the active photo, or take it off. */
+  const toggleBadge = () => {
+    if (!activeImage) return;
+    const on = !activeImage.badge;
+    commit(activeImage.id, on ? 'add Chairman’s Club badge' : 'remove Chairman’s Club badge');
+    setImages((prev) =>
+      prev.map((img) => (img.id === activeImage.id ? { ...img, badge: on } : img))
+    );
+    setStatus(on ? 'Chairman’s Club badge added.' : 'Chairman’s Club badge removed.');
   };
 
   /**
@@ -569,6 +594,7 @@ const beginStroke = useCallback(() => {
             crops: { ...snapshot.crops },
             cutout: snapshot.cutout,
             useCutout: snapshot.useCutout,
+            badge: snapshot.badge,
             history: result.history,
             lastEdit: snapshot.label,
           };
@@ -967,6 +993,28 @@ const beginStroke = useCallback(() => {
                   </span>
                 )}
 
+                {/*
+                  * The Chairman's Club badge, for club members. Unlike Remove
+                  * background it is a live toggle -- adding and removing it
+                  * costs nothing -- and it only applies to photo crops, so it
+                  * is hidden on a logo preset where it would do nothing.
+                  */}
+                {activePreset.fit === 'cover' && (
+                  <button
+                    onClick={toggleBadge}
+                    disabled={busy || !badgeLogo}
+                    className={activeImage.badge ? 'on' : undefined}
+                    aria-pressed={activeImage.badge === true}
+                    title={
+                      activeImage.badge
+                        ? 'Remove the Chairman’s Club badge from this photo'
+                        : 'Add the Chairman’s Club logo across the bottom of this photo'
+                    }
+                  >
+                    Chairman’s Club
+                  </button>
+                )}
+
                 <span className="spacer" />
 
                 {/* View controls belong to neither mode; both need them. */}
@@ -1074,6 +1122,7 @@ const beginStroke = useCallback(() => {
                 onPaint={paintAt}
                 onPaintStart={beginStroke}
                 onPaintEnd={endStroke}
+                badge={activeImage.badge && activePreset.fit === 'cover' ? badgeLogo : null}
                 onZoomChange={setZoomFactor}
                 zoomCommand={zoomCommand}
               />

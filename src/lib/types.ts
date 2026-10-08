@@ -182,6 +182,11 @@ export interface LoadedImage {
   /** Whether the cutout is the one to display and export. */
   useCutout?: boolean;
   /**
+   * Whether the Chairman's Club badge is laid across the bottom of this
+   * image's crops. Per image, because only club members get it.
+   */
+  badge?: boolean;
+  /**
    * Undo/redo stack for this image. Per image rather than global, so undo
    * never jumps to a different photo mid-batch.
    */
